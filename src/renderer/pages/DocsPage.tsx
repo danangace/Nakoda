@@ -1,3 +1,4 @@
+import { Check, Copy } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { type DocFile, api } from '../api/nakoda'
 import { Markdown } from '../components/docs-browser/Markdown'
@@ -17,6 +18,32 @@ function Frontmatter({ data }: { data: Record<string, unknown> }) {
           <span className="text-muted-foreground">{key}:</span> {Array.isArray(value) ? value.join(', ') : String(value)}
         </span>
       ))}
+    </div>
+  )
+}
+
+/** One path with a copy button, for pasting into notes or a terminal. */
+function PathLine({ label, value }: { label: string; value: string }) {
+  const [copied, setCopied] = useState(false)
+  const copy = () => {
+    void navigator.clipboard.writeText(value).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    })
+  }
+  return (
+    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+      <span className="shrink-0">{label}</span>
+      <span className="min-w-0 break-all font-mono text-foreground/80 select-text">{value}</span>
+      <button
+        type="button"
+        aria-label={`Copy ${label.toLowerCase()}`}
+        title={`Copy ${label.toLowerCase()}`}
+        onClick={copy}
+        className="shrink-0 rounded p-1 hover:bg-secondary hover:text-foreground"
+      >
+        {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+      </button>
     </div>
   )
 }
@@ -54,7 +81,10 @@ export function DocsPage({ path }: { path: string }) {
           {!path && !error && <p className="text-sm text-muted-foreground">Pick a note in the sidebar. Docs are read-only here; edit them in Obsidian.</p>}
           {doc && (
             <>
-              <div className="mb-2 text-xs text-muted-foreground">{doc.path}</div>
+              <div className="mb-3 space-y-0.5">
+                <PathLine label="Path" value={doc.fullPath} />
+                <PathLine label="Folder" value={doc.fullPath.replace(/\/[^/]*$/, '')} />
+              </div>
               <Frontmatter data={doc.frontmatter} />
               <Markdown source={wikiToMarkdown(doc.body, doc.links)} onOpenDoc={open} />
             </>

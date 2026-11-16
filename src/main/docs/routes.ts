@@ -10,6 +10,7 @@ const pathParam = (value: string | undefined): string => {
 }
 
 export function registerDocsRoutes(app: Hono, docs: DocsService): void {
+  app.get(API.docsRoot, (c) => c.json({ root: docs.root() }))
   app.get(API.docsTree, (c) => c.json(docs.tree(c.req.query('all') === '1')))
   app.get(API.docsFile, (c) => c.json(docs.read(pathParam(c.req.query('path')))))
   app.get(API.docsAsset, (c) => {

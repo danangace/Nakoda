@@ -61,6 +61,7 @@ export type Inspection = z.infer<typeof Inspection>
 
 export const DocFile = z.object({
   path: z.string(),
+  fullPath: z.string(),
   frontmatter: z.record(z.string(), z.unknown()),
   body: z.string(),
   links: z.record(z.string(), z.string().nullable()),
@@ -92,6 +93,7 @@ export const api = {
   accountModels: (id: string, refresh = false) => request('GET', `${API.accounts}/${id}/models${refresh ? '?refresh=1' : ''}`, ModelCatalog),
   renameAccount: (id: string, label: string) => request('PATCH', `${API.accounts}/${id}`, Account, { label }),
   removeAccount: (id: string) => request('DELETE', `${API.accounts}/${id}`, Ok),
+  docsRoot: () => request('GET', API.docsRoot, z.object({ root: z.string() })),
   docsTree: (all = false) => request('GET', all ? `${API.docsTree}?all=1` : API.docsTree, z.array(DocNode)),
   docsFile: (path: string) => request('GET', `${API.docsFile}?path=${encodeURIComponent(path)}`, DocFile),
   listWorkflows: () => request('GET', '/api/workflows', z.array(Workflow)),

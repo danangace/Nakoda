@@ -10,6 +10,8 @@ import { IMAGE_EXT, buildTree, hideFolders, listFiles, resolveLink, wikiTargets 
 
 export type DocFile = {
   path: string
+  /** Absolute path on disk, so it can be copied as a reference. */
+  fullPath: string
   frontmatter: Record<string, unknown>
   body: string
   /** wiki-link / embed target → resolved docs path (null when not found). */
@@ -68,7 +70,7 @@ export class DocsService {
     const files = this.files()
     const links: Record<string, string | null> = {}
     for (const target of wikiTargets(body)) links[target] = resolveLink(files, target, rel)
-    return { path: rel, frontmatter, body, links }
+    return { path: rel, fullPath: full, frontmatter, body, links }
   }
 
   asset(rel: string): { full: string; type: string } {
