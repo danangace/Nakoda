@@ -17,6 +17,17 @@ import { Select } from '../ui/Select'
 const FREE = '__free'
 const NO_AGENT = '__none'
 
+/**
+ * Where a defect ticket's branch starts. Development and staging are fixed (staging pulls `main` first); a hotfix starts from
+ * the release tag you type (the latest one in production).
+ */
+export const DEFECT_TARGETS = [
+  { value: 'development', label: 'Defect · Development', base: 'origin/dev/tribe-2' },
+  { value: 'staging', label: 'Defect · Staging', base: 'main' },
+  { value: 'hotfix', label: 'Hotfix · from a release tag', base: null },
+] as const
+export type DefectTarget = (typeof DEFECT_TARGETS)[number]['value']
+
 export function WorkflowFieldInput({
   field,
   value,
@@ -79,6 +90,8 @@ export function CreateWorkspaceModal({ projectId, taskId, onClose }: { projectId
   const [agent, setAgent] = useState(NO_AGENT)
   const [model, setModel] = useState('')
   const [base, setBase] = useState('')
+  const [defectTarget, setDefectTarget] = useState<DefectTarget>('development')
+  const [hotfixTag, setHotfixTag] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [task, setTask] = useState<Task | null>(null)
@@ -123,7 +136,12 @@ export function CreateWorkspaceModal({ projectId, taskId, onClose }: { projectId
 
   const missing = useMemo(() => (workflow?.fields ?? []).filter((f) => f.required && !values[f.key]?.trim()).map((f) => f.label), [workflow, values])
   const branchField = workflow?.fields.find((f) => f.type === 'branch')
-  const effectiveBase = base.trim() || (branchField && values[branchField.key]?.trim()) || repo?.featureBase || ''
+  // A defect ticket picks where it starts: development, staging, or a hotfix from a tag. Advanced still wins.
+  const isDefect = task?.kind === 'defect'
+  const target = DEFECT_TARGETS.find((t) => t.value === defectTarget)
+  const defectBase = isDefect ? (target?.base ?? hotfixTag.trim()) : ''
+  const needsTag = isDefect && defectTarget === 'hotfix' && !hotfixTag.trim() && !base.trim()
+  const effectiveBase = base.trim() || defectBase || (branchField && values[branchField.key]?.trim()) || repo?.featureBase || ''
   const branchPreview = `${repo?.branchPrefix ?? ''}${name.trim() || 'ws-<date>'}`
 
   const create = async () => {
@@ -135,7 +153,7 @@ export function CreateWorkspaceModal({ projectId, taskId, onClose }: { projectId
         name: name.trim() || undefined,
         workflowId: workflow?.id ?? null,
         values: workflow ? values : {},
-        base: base.trim() || undefined,
+        base: base.trim() || defectBase || undefined,
       })
       // From a ticket: the new workspace takes it (the ticket moves to In progress).
       if (taskId) await api.assignTask(taskId, ws.id)
@@ -153,7 +171,7 @@ export function CreateWorkspaceModal({ projectId, taskId, onClose }: { projectId
     }
   }
 
-  const canCreate = Boolean(repoId) && missing.length === 0 && !busy
+  const canCreate = Boolean(repoId) && missing.length === 0 && !needsTag && !busy
   return (
     <Modal title="Create workspace" onClose={onClose}>
       <div
@@ -183,6 +201,18 @@ export function CreateWorkspaceModal({ projectId, taskId, onClose }: { projectId
                 options={[{ value: FREE, label: 'Free chat' }, ...workflows.map((w) => ({ value: w.id, label: w.name }))]}
               />
             </Field>
+            {isDefect && (
+              <div className="space-y-3 rounded-md border border-border p-3">
+                <Field label="Defect target" hint="Decides which branch the fix starts from.">
+                  <Select aria-label="Defect target" value={defectTarget} onValueChange={(v) => setDefectTarget(v as DefectTarget)} options={DEFECT_TARGETS.map((t) => ({ value: t.value, label: t.label }))} />
+                </Field>
+                {defectTarget === 'hotfix' && (
+                  <Field label="Release tag *" hint="The latest tag in production, e.g. v1.42.0. The hotfix branch starts from it.">
+                    <Input aria-label="Release tag" value={hotfixTag} placeholder="v1.42.0" onChange={(e) => setHotfixTag(e.target.value)} />
+                  </Field>
+                )}
+              </div>
+            )}
             {workflow && (
               <div className="space-y-3 rounded-md border border-border p-3">
                 {workflow.description && <p className="text-xs text-muted-foreground">{workflow.description}</p>}
@@ -232,6 +262,7 @@ export function CreateWorkspaceModal({ projectId, taskId, onClose }: { projectId
             <p className="text-xs text-muted-foreground">
               Branch <code className="text-foreground/80">{branchPreview}</code> from <code className="text-foreground/80">{effectiveBase}</code>
             </p>
+            {needsTag && <p className="text-xs text-warning">Fill in: Release tag</p>}
             {missing.length > 0 && <p className="text-xs text-warning">Fill in: {missing.join(', ')}</p>}
             <div className="flex justify-end">
               <Button variant="primary" disabled={!canCreate} onClick={() => void create()}>

@@ -83,6 +83,47 @@ describe('createWorkspace', () => {
     expect(ws.base).toBe('origin/main')
   })
 
+  it('a hotfix can start from a release tag that only exists on origin', async () => {
+    const { db, repo, repoId } = await setup()
+    execFileSync('git', ['-C', repo, 'tag', 'v9.9.9'])
+    execFileSync('git', ['-C', repo, 'push', '-q', 'origin', 'v9.9.9'])
+    execFileSync('git', ['-C', repo, 'tag', '-d', 'v9.9.9'])
+    const ws = await createWorkspace(db, { repoId, name: 'hot', base: 'v9.9.9' })
+    expect(ws.base).toBe('v9.9.9')
+    await expect(createWorkspace(db, { repoId, name: 'hot2', base: 'v0.0.0' })).rejects.toThrow(/Base not found/)
+  })
+
+  it('a plain local base (main) is pulled from origin first', async () => {
+    const { db, repo, origin, repoId } = await setup()
+    // A teammate pushes a new commit to main; the local main is now behind.
+    const other = mkdtempSync(join(tmpdir(), 'nakoda-other-'))
+    execFileSync('git', ['clone', '-q', origin, other])
+    execFileSync('git', ['-C', other, 'config', 'user.email', 't@example.com'])
+    execFileSync('git', ['-C', other, 'config', 'user.name', 'Test'])
+    writeFileSync(join(other, 'new.txt'), 'new\n')
+    execFileSync('git', ['-C', other, 'add', '.'])
+    execFileSync('git', ['-C', other, 'commit', '-q', '-m', 'teammate'])
+    execFileSync('git', ['-C', other, 'push', '-q', 'origin', 'HEAD:main'])
+    const before = gitOut(repo, 'rev-parse', 'main')
+    const ws = await createWorkspace(db, { repoId, name: 'stg', base: 'main' })
+    const pulled = gitOut(repo, 'rev-parse', 'main')
+    expect(pulled).not.toBe(before)
+    expect(existsSync(join(ws.worktreePath, 'new.txt'))).toBe(true)
+  })
+
+  it('refuses a base that cannot be fast-forwarded and creates nothing', async () => {
+    const { db, repo, repoId } = await setup()
+    writeFileSync(join(repo, 'local.txt'), 'x\n')
+    execFileSync('git', ['-C', repo, 'add', '.'])
+    execFileSync('git', ['-C', repo, 'commit', '-q', '-m', 'local only'])
+    // Make origin/main differ too, so main has diverged.
+    execFileSync('git', ['-C', repo, 'push', '-q', 'origin', 'HEAD:refs/heads/main', '--force'])
+    execFileSync('git', ['-C', repo, 'reset', '-q', '--hard', 'HEAD~1'])
+    execFileSync('git', ['-C', repo, 'commit', '-q', '--allow-empty', '-m', 'diverge'])
+    await expect(createWorkspace(db, { repoId, name: 'stg2', base: 'main' })).rejects.toThrow(/Could not pull main first/)
+    expect(listWorkspaces(db)).toHaveLength(0)
+  })
+
   it('rejects a duplicate name and an unknown base', async () => {
     const { db, repoId } = await setup()
     await createWorkspace(db, { repoId, name: 'a' })

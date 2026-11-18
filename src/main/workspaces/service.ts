@@ -7,7 +7,7 @@ import { UserError } from '../errors'
 import { expandHome, nowIso } from '../paths'
 import { getRepo, getSettings } from '../settings/store'
 import type { Db } from '../sqlite/db'
-import { type Git, addWorktree, fetchForBase, git as defaultGit, refExists } from './git'
+import { type Git, addWorktree, fetchForBase, fetchTag, pullLocalBase, git as defaultGit, refExists } from './git'
 
 type WorkspaceRow = {
   id: string
@@ -120,6 +120,13 @@ export async function createWorkspace(db: Db, input: unknown, run: Git = default
     }
     throw new UserError('fetch_failed', `git fetch failed: ${stderr.trim() || (error as Error).message}`)
   }
+  try {
+    await pullLocalBase(run, repo.path, base)
+  } catch (error) {
+    const detail = (error as { stderr?: string }).stderr?.trim() || (error as Error).message
+    throw new UserError('pull_failed', `Could not pull ${base} first: ${detail}`, 409)
+  }
+  if (!(await refExists(run, repo.path, base))) await fetchTag(run, repo.path, base)
   if (!(await refExists(run, repo.path, base))) throw new UserError('base_not_found', `Base not found: ${base}`)
 
   mkdirSync(dirname(worktreePath), { recursive: true })
