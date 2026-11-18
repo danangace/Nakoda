@@ -6,7 +6,8 @@ import { configDirName } from '../../lib/accounts'
 import { cn } from '../../lib/cn'
 import { errorText } from '../../lib/errors'
 import { Button } from '../ui/Button'
-import { Card, Input, Notice } from '../ui/Field'
+import { Card, Field, Input, Notice } from '../ui/Field'
+import { Select } from '../ui/Select'
 import { toast } from '../../store/toast'
 import { useConfirm } from '../ui/confirm'
 import { ClaudeSignIn } from './ClaudeSignIn'
@@ -121,11 +122,21 @@ function AccountRow({ account, onChange, onError }: { account: Account; onChange
   )
 }
 
-/** Settings → Accounts (D-11). V1: Claude only; Codex comes after the beta (D-13). */
+/** Providers shown in the picker. Only Claude has an adapter today; the rest are listed but disabled. */
+const PROVIDERS = [
+  { value: 'claude', label: 'Claude', ready: true },
+  { value: 'codex', label: 'Codex', ready: false },
+  { value: 'copilot', label: 'Copilot', ready: false },
+  { value: 'gemini', label: 'Gemini', ready: false },
+]
+const PROVIDER_OPTIONS = PROVIDERS.map((p) => ({ value: p.value, disabled: !p.ready, label: p.ready ? p.label : `${p.label} (coming soon)` }))
+
+/** Settings → Accounts (D-11). Pick a provider first; V1 only Claude works, the others are disabled until their adapter exists. */
 export function AccountSettings() {
   const [accounts, setAccounts] = useState<Account[]>([])
   const [found, setFound] = useState<DetectedLogin[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [provider, setProvider] = useState('claude')
   const onError = (e: unknown) => setError(errorText(e))
 
   const load = useCallback(() => {
@@ -138,7 +149,10 @@ export function AccountSettings() {
   useEffect(load, [load])
 
   return (
-    <Card title="Accounts · Claude">
+    <Card title="Accounts">
+      <Field label="Provider">
+        <Select aria-label="Provider" className="w-56" value={provider} onValueChange={(v) => v && setProvider(v)} options={PROVIDER_OPTIONS} />
+      </Field>
       {error && <Notice tone="error">{error}</Notice>}
       {found.length > 0 && (
         <div className="space-y-2">
