@@ -1,9 +1,11 @@
 import { ChevronRight, ExternalLink, RefreshCw } from 'lucide-react'
-import { type ReactNode, useEffect, useState } from 'react'
+import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { type Connector, type ExternalPage, type ExternalTicket, HELIX_STATUSES, HELIX_SUBTASK_STATUSES, type Iteration, statusCategory } from '../../../shared/connectors'
+import type { TaskDefaults } from '../../../shared/schemas'
 import { api } from '../../api/nakoda'
 import { cn } from '../../lib/cn'
 import { errorText } from '../../lib/errors'
+import { resolveIteration } from '../../lib/task-defaults'
 import { statusLabel } from '../../lib/tasks-tabs'
 import { useRouter } from '../../store/router'
 import { toast } from '../../store/toast'
@@ -118,6 +120,9 @@ export function ExternalTasks() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [nonce, setNonce] = useState(0)
+  // Settings → Tasks: start from the saved filters. The page waits for them so it does not load twice.
+  const [ready, setReady] = useState(false)
+  const wantIteration = useRef<TaskDefaults['iteration'] | undefined>(undefined)
   // Tickets already copied to our board (matched by key), and the one being copied now.
   const [onBoard, setOnBoard] = useState<Set<string>>(new Set())
   const [copying, setCopying] = useState<string | null>(null)
@@ -133,6 +138,26 @@ export function ExternalTasks() {
         setConnectorId((cur) => cur || list[0]?.id || '')
       },
       (e: unknown) => setError(errorText(e)),
+    )
+  }, [])
+
+  useEffect(() => {
+    api.getSettings().then(
+      ({ taskDefaults: d }) => {
+        setScope(d.scope)
+        setStatus(d.status ?? ALL)
+        setSubStatus(d.subStatus ?? ALL)
+        if (d.boardId !== null) {
+          setBoardId(String(d.boardId))
+          // The iteration can only be resolved once the board's iterations are read.
+          if (d.iteration !== null) {
+            wantIteration.current = d.iteration
+            return
+          }
+        }
+        setReady(true)
+      },
+      () => setReady(true),
     )
   }, [])
 
@@ -155,7 +180,14 @@ export function ExternalTasks() {
 
   useEffect(() => {
     if (!connectorId) return
-    api.connectorBoards(connectorId).then(setBoards, () => setBoards([]))
+    api.connectorBoards(connectorId).then(
+      (list) => {
+        setBoards(list)
+        // A saved default board that no longer exists falls back to all boards.
+        setBoardId((cur) => (cur === ALL || list.some((b) => String(b.id) === cur) ? cur : ALL))
+      },
+      () => setBoards([]),
+    )
   }, [connectorId])
 
   // Iterations belong to a board, so they only appear once a board is chosen.
@@ -163,11 +195,28 @@ export function ExternalTasks() {
     setIterationId(ALL)
     setIterations([])
     if (!connectorId || boardId === ALL) return
-    api.connectorIterations(connectorId, Number(boardId)).then(setIterations, () => setIterations([]))
+    api
+      .connectorIterations(connectorId, Number(boardId))
+      .then(
+        (list) => {
+          setIterations(list)
+          const want = wantIteration.current
+          if (want === undefined) return
+          const id = resolveIteration(list, want)
+          if (id !== null) setIterationId(String(id))
+        },
+        () => setIterations([]),
+      )
+      .finally(() => {
+        if (wantIteration.current !== undefined) {
+          wantIteration.current = undefined
+          setReady(true)
+        }
+      })
   }, [connectorId, boardId])
 
   useEffect(() => {
-    if (!connectorId) return
+    if (!connectorId || !ready) return
     let current = true
     setLoading(true)
     api
@@ -192,12 +241,12 @@ export function ExternalTasks() {
     return () => {
       current = false
     }
-  }, [connectorId, page, boardId, iterationId, scope, status, nonce])
+  }, [connectorId, page, boardId, iterationId, scope, status, nonce, ready])
 
   useEffect(() => {
     setMySubtasks(null)
     setSubError(null)
-    if (!connectorId || scope !== 'mine' || iterationId === ALL) return
+    if (!connectorId || !ready || scope !== 'mine' || iterationId === ALL) return
     let current = true
     api.mySubtasks(connectorId, { boardId: boardId === ALL ? undefined : Number(boardId), iterationId: Number(iterationId) }, nonce > 0).then(
       (items) => current && setMySubtasks(items),
@@ -206,7 +255,7 @@ export function ExternalTasks() {
     return () => {
       current = false
     }
-  }, [connectorId, scope, boardId, iterationId, nonce])
+  }, [connectorId, scope, boardId, iterationId, nonce, ready])
 
   const filter = <T,>(set: (v: T) => void) => (v: T) => {
     set(v)

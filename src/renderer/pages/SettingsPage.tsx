@@ -4,6 +4,7 @@ import { ConnectorSettings } from '../components/settings/ConnectorSettings'
 import { DocsSettings } from '../components/settings/DocsSettings'
 import { GeneralSettings } from '../components/settings/GeneralSettings'
 import { ModelSettings } from '../components/settings/ModelSettings'
+import { TaskSettings } from '../components/settings/TaskSettings'
 import { WorkflowSettings } from '../components/workflows/WorkflowSettings'
 import { type SettingsSectionId, SETTINGS_SECTIONS, resolveSettingsSection } from '../lib/settings-sections'
 
@@ -12,6 +13,7 @@ const RENDER: Record<SettingsSectionId, () => ReactNode> = {
   workflows: () => <WorkflowSettings />,
   accounts: () => <AccountSettings />,
   models: () => <ModelSettings />,
+  tasks: () => <TaskSettings />,
   docs: () => <DocsSettings />,
   connectors: () => <ConnectorSettings />,
 }

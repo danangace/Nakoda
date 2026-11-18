@@ -18,6 +18,7 @@ export const DEFAULT_SETTINGS: Settings = {
   models: { claude: { list: ['sonnet', 'opus', 'haiku'], default: 'sonnet' } },
   openIn: { kind: 'default' },
   chatDefaults: { effort: 'medium', permissionMode: 'full' },
+  taskDefaults: { scope: 'mine', boardId: null, iteration: null, status: null, subStatus: null },
 }
 
 const SETTINGS_KEY = 'app'

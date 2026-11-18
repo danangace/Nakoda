@@ -42,6 +42,19 @@ export const ChatDefaults = z.object({
 })
 export type ChatDefaults = z.infer<typeof ChatDefaults>
 
+/** What the Tasks page starts with (Settings → Tasks), so the filters need not be set at every visit. */
+export const TaskDefaults = z.object({
+  scope: z.enum(['mine', 'everyone']).default('mine'),
+  boardId: z.number().int().nullable().default(null),
+  /** 'active' = whichever iteration of the board is active now; a number = that one iteration. */
+  iteration: z.union([z.literal('active'), z.number().int()]).nullable().default(null),
+  /** A Helix status for tickets, null = all. */
+  status: z.string().nullable().default(null),
+  /** A subtask status (open / in_progress / done), null = all. */
+  subStatus: z.string().nullable().default(null),
+})
+export type TaskDefaults = z.infer<typeof TaskDefaults>
+
 export const Settings = z.object({
   /** Markdown folder browsed read-only (e.g. the Obsidian vault). */
   docsRoot: nullableText,
@@ -53,6 +66,7 @@ export const Settings = z.object({
   models: z.object({ claude: AgentModels }).catchall(AgentModels),
   openIn: OpenIn.default({ kind: 'default' }),
   chatDefaults: ChatDefaults.default({ effort: 'medium', permissionMode: 'full' }),
+  taskDefaults: TaskDefaults.default({ scope: 'mine', boardId: null, iteration: null, status: null, subStatus: null }),
 })
 export type Settings = z.infer<typeof Settings>
 
