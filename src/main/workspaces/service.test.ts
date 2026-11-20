@@ -124,6 +124,15 @@ describe('createWorkspace', () => {
     expect(listWorkspaces(db)).toHaveLength(0)
   })
 
+  it('a defect workspace is a bug fix: fix/ instead of feat/ in its branch', async () => {
+    const { db, repoId } = await setup()
+    const values = { defect: 'x', environment: 'dev', app: 'core', url_page: 'https://a.test', steps: '1', expected: 'e', actual: 'a', severity: 'minor', handling: 'defect development', iteration: 'i-1' }
+    const fix = await createWorkspace(db, { repoId, name: 'link-redirect', workflowId: 'defect', values })
+    expect(fix.branch).toBe('fix/tribe-2/link-redirect')
+    const feat = await createWorkspace(db, { repoId, name: 'other' })
+    expect(feat.branch).toBe('feat/tribe-2/other')
+  })
+
   it('rejects a duplicate name and an unknown base', async () => {
     const { db, repoId } = await setup()
     await createWorkspace(db, { repoId, name: 'a' })

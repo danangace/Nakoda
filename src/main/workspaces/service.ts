@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { existsSync, mkdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
+import { DEFECT_WORKFLOW_ID, branchPrefixFor } from '../../shared/branch'
 import { type AgentId, type Workspace, WorkspaceInput, type WorkspaceStatus, WorkspaceUpdate } from '../../shared/schemas'
 import { getWorkflow, resolveValues } from '../workflows/service'
 import { UserError } from '../errors'
@@ -102,7 +103,7 @@ export async function createWorkspace(db: Db, input: unknown, run: Git = default
   const taken = (name: string) =>
     existsSync(join(workspacesDir, name)) || Boolean(db.prepare('SELECT 1 FROM workspaces WHERE repo_id = ? AND name = ?').get(repo.id, name))
   const name = data.name?.trim() || autoName(taken)
-  const branch = `${repo.branchPrefix}${name}`
+  const branch = `${branchPrefixFor(repo.branchPrefix, workflow?.id === DEFECT_WORKFLOW_ID)}${name}`
   const worktreePath = join(workspacesDir, name)
   const branchField = workflow?.fields.find((f) => f.type === 'branch')
   const base = data.base?.trim() || (branchField ? values[branchField.key] : '') || repo.featureBase

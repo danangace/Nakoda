@@ -1,5 +1,6 @@
 import { Loader2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
+import { DEFECT_WORKFLOW_ID, branchPrefixFor } from '../../../shared/branch'
 import type { Account, Settings, Workflow, WorkflowField } from '../../../shared/schemas'
 import type { Task } from '../../../shared/tasks'
 import { api } from '../../api/nakoda'
@@ -139,7 +140,7 @@ export function CreateWorkspaceModal({ projectId, taskId, onClose }: { projectId
   const handlingBase = isHotfix ? hotfixTag.trim() : (HANDLING_BASES[handling] ?? '')
   const needsTag = isHotfix && !hotfixTag.trim() && !base.trim()
   const effectiveBase = base.trim() || handlingBase || (branchField && values[branchField.key]?.trim()) || repo?.featureBase || ''
-  const branchPreview = `${repo?.branchPrefix ?? ''}${name.trim() || 'ws-<date>'}`
+  const branchPreview = `${branchPrefixFor(repo?.branchPrefix ?? '', workflow?.id === DEFECT_WORKFLOW_ID)}${name.trim() || 'ws-<date>'}`
 
   const create = async () => {
     setBusy(true)
