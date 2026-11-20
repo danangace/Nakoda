@@ -112,7 +112,11 @@ export function deleteTask(db: Db, id: string): void {
  */
 export function assignTask(db: Db, id: string, workspaceId: string): Task {
   const task = getTask(db, id)
-  if (task.workspaceId) throw new UserError('task_assigned', 'This ticket already has a workspace. Unassign it first.', 409)
+  if (task.workspaceId) {
+    // A link to an archived workspace is stale: the ticket is free to be assigned again.
+    const current = db.prepare('SELECT archived_at FROM workspaces WHERE id = ?').get(task.workspaceId) as { archived_at: string | null } | undefined
+    if (current && !current.archived_at) throw new UserError('task_assigned', 'This ticket already has a workspace. Unassign it first.', 409)
+  }
   const ws = db.prepare('SELECT repo_id, archived_at FROM workspaces WHERE id = ?').get(workspaceId) as { repo_id: string; archived_at: string | null } | undefined
   if (!ws || ws.archived_at) throw new UserError('workspace_not_found', 'That workspace does not exist or is archived', 404)
   const fields = task.workflowId ? getWorkflow(db, task.workflowId).fields : []

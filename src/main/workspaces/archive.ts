@@ -34,4 +34,6 @@ export async function archiveWorkspace(db: Db, id: string, input: unknown, run: 
   }
   if (options.data.deleteBranch) await deleteBranch(run, repo.path, ws.branch)
   db.prepare('UPDATE workspaces SET archived_at = ? WHERE id = ?').run(nowIso(), id)
+  // Tickets that were on it are free again, so they can be given a new workspace.
+  db.prepare('UPDATE tasks SET workspace_id = NULL, updated_at = ? WHERE workspace_id = ?').run(nowIso(), id)
 }
