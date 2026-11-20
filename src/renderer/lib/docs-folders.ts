@@ -13,3 +13,16 @@ export function docFolders(nodes: DocNodeT[]): string[] {
   walk(nodes)
   return out
 }
+
+/** Every note path in the docs tree (relative to the docs root), to tell which doc paths already exist. */
+export function docFiles(nodes: DocNodeT[]): Set<string> {
+  const out = new Set<string>()
+  const walk = (list: DocNodeT[]) => {
+    for (const n of list) {
+      if (n.dir) walk(n.children ?? [])
+      else out.add(n.path)
+    }
+  }
+  walk(nodes)
+  return out
+}
