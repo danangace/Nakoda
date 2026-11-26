@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '../ui/Checkbox'
 import { Card, Field, Notice, ScriptArea } from '../ui/Field'
 import { Input } from '@/components/ui/input'
-import { Select } from '../ui/Select'
+import { Select } from '../ui/SelectInput'
 import { toast } from '../../store/toast'
 import { useConfirm } from '../ui/confirm'
 

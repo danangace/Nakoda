@@ -9,7 +9,7 @@ import { useWorkspaces } from '../../store/workspaces'
 import { Button } from '@/components/ui/button'
 import { Field, Notice } from '../ui/Field'
 import { Modal } from '../ui/Modal'
-import { Select } from '../ui/Select'
+import { Select } from '../ui/SelectInput'
 import { WorkflowFieldInput } from './CreateWorkspaceModal'
 
 const FREE = '__free'

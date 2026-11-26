@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { toast } from '../../store/toast'
 import { Card, Field, Notice } from '../ui/Field'
 import { Input } from '@/components/ui/input'
-import { Select } from '../ui/Select'
+import { Select } from '../ui/SelectInput'
 
 /** Your own named doc locations; each chat gets them filled in for its workspace. */
 function DocPathsEditor({ value, onChange }: { value: DocPath[]; onChange: (v: DocPath[]) => void }) {

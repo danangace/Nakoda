@@ -10,7 +10,7 @@ import { timeAgo } from '../../lib/usage'
 import { toast } from '../../store/toast'
 import { Button } from '@/components/ui/button'
 import { Card, Notice } from '../ui/Field'
-import { Select } from '../ui/Select'
+import { Select } from '../ui/SelectInput'
 import { Switch } from '../ui/Switch'
 
 /** One row: switch on / off, ★ default, name + description from the account. */

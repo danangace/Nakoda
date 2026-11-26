@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Field, Notice } from '../ui/Field'
 import { Textarea } from '@/components/ui/textarea'
 import { Modal } from '../ui/Modal'
-import { Select } from '../ui/Select'
+import { Select } from '../ui/SelectInput'
 
 type Mode = 'status' | 'comment'
 type Info = { title: string; type: string; status: string; next: string[]; known: boolean }

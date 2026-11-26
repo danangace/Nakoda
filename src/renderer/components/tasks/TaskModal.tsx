@@ -11,7 +11,7 @@ import { Field, Notice } from '../ui/Field'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Modal } from '../ui/Modal'
-import { Select } from '../ui/Select'
+import { Select } from '../ui/SelectInput'
 import { useConfirm } from '../ui/confirm'
 import { WorkflowFieldInput } from '../workspace/CreateWorkspaceModal'
 

@@ -11,7 +11,7 @@ import { useRouter } from '../../store/router'
 import { toast } from '../../store/toast'
 import { Button } from '@/components/ui/button'
 import { Notice } from '../ui/Field'
-import { Select } from '../ui/Select'
+import { Select } from '../ui/SelectInput'
 import { TicketMenu } from './TicketMenu'
 
 const ALL = 'all'

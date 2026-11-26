@@ -15,7 +15,7 @@ import { Field, Notice } from '../ui/Field'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Modal } from '../ui/Modal'
-import { Select } from '../ui/Select'
+import { Select } from '../ui/SelectInput'
 
 const FREE = '__free'
 const NO_AGENT = '__none'

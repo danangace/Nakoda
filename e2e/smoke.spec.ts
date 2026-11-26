@@ -10,6 +10,8 @@ async function pick(page: Page, trigger: Locator, option: string) {
   await trigger.click()
   await page.getByRole('option', { name: option, exact: true }).click()
   await expect(trigger).toContainText(option)
+  // A closed popup fades out for a moment and still answers getByRole; wait for it to be gone before the next pick.
+  await expect(page.getByRole('listbox')).toHaveCount(0)
 }
 
 /** Open a ticket's "⋯" menu inside `scope` and choose an item (the menu is drawn on the page, not inside the card). */

@@ -8,7 +8,7 @@ import { useRouter } from '../../store/router'
 import { toast } from '../../store/toast'
 import { Button } from '@/components/ui/button'
 import { Card, Field, Notice } from '../ui/Field'
-import { Select } from '../ui/Select'
+import { Select } from '../ui/SelectInput'
 
 const ANY = 'any'
 const ACTIVE = 'active'
