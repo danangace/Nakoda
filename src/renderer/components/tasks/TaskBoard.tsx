@@ -67,8 +67,6 @@ function Card({ task, workflows, onOpen }: { task: Task; workflows: Workflow[]; 
           )}
           {task.externalUrl && (
             <span className="flex shrink-0 items-center gap-3">
-              <BreakdownButton task={task} />
-              <HelixChangeButton task={task} />
               <a href={task.externalUrl} target="_blank" rel="noreferrer noopener" onClick={(e) => e.stopPropagation()} className="inline-flex shrink-0 items-center gap-1 text-foreground/60 hover:text-foreground">
                 Open in source <ExternalLink className="size-3" />
               </a>
@@ -76,6 +74,11 @@ function Card({ task, workflows, onOpen }: { task: Task; workflows: Workflow[]; 
           )}
         </div>
       )}
+      {/* Own row, so a narrow card never pushes "Open in source" out; empty (and hidden) without a write token. */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 empty:hidden">
+        <BreakdownButton task={task} />
+        <HelixChangeButton task={task} />
+      </div>
     </div>
   )
 }

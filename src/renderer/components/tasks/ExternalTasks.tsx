@@ -31,12 +31,12 @@ type RowActions = {
 function Row({ t, child, actions, toggle, connectorId, onChanged }: { t: ExternalTicket; child?: boolean; actions: RowActions; toggle?: ReactNode; connectorId: string; onChanged?: () => void }) {
   const asTask = { source: 'helix', externalId: t.key, kind: t.kind } as const
   return (
-    <div className={cn('flex items-center gap-3 py-2.5 pr-3', child ? 'pl-10' : 'pl-3')}>
+    <div className={cn('flex flex-wrap items-center gap-x-3 gap-y-1.5 py-2.5 pr-3', child ? 'pl-10' : 'pl-3')}>
       <span className="flex w-24 shrink-0 items-center gap-1 font-mono text-xs text-muted-foreground">
         {toggle}
         {t.key}
       </span>
-      <span className="min-w-0 flex-1">
+      <span className="min-w-[12rem] flex-1 basis-48">
         <span className="block truncate text-sm text-foreground">{t.title}</span>
         <span className="block truncate text-xs text-muted-foreground">{[t.parent ? `in ${t.parent.key} · ${t.parent.title}` : null, child ? t.type : null, t.board, t.iteration, t.assignee].filter(Boolean).join(' · ')}</span>
       </span>
@@ -52,9 +52,9 @@ function Row({ t, child, actions, toggle, connectorId, onChanged }: { t: Externa
           {actions.copying === t.key ? 'Copying…' : 'Transfer'}
         </Button>
       )}
-      <span className="flex shrink-0 items-center gap-3">
-        <HelixChangeButton task={asTask} connectorId={connectorId} onDone={onChanged} />
-        {!child && PARENT_TYPES_FOR_SUBTASKS.includes(t.type as (typeof PARENT_TYPES_FOR_SUBTASKS)[number]) && <BreakdownButton task={asTask} connectorId={connectorId} onDone={onChanged} />}
+      <span className="flex shrink-0 items-center gap-0.5 empty:hidden">
+        <HelixChangeButton task={asTask} connectorId={connectorId} compact onDone={onChanged} />
+        {!child && PARENT_TYPES_FOR_SUBTASKS.includes(t.type as (typeof PARENT_TYPES_FOR_SUBTASKS)[number]) && <BreakdownButton task={asTask} connectorId={connectorId} compact onDone={onChanged} />}
       </span>
       <a href={t.url} target="_blank" rel="noreferrer noopener" className="inline-flex shrink-0 items-center gap-1 text-xs text-foreground/70 hover:text-foreground">
         Open in source <ExternalLink className="size-3" />

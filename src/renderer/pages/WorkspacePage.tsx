@@ -136,7 +136,7 @@ function TaskDetails({ workspace }: { workspace: Workspace }) {
         <div className="text-sm text-foreground/80">Free chat</div>
         {task && <SourceLink task={task} />}
         {task && (
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-x-3 gap-y-1">
             <HelixChangeButton task={task} />
             <BreakdownButton task={task} />
           </div>
@@ -148,7 +148,7 @@ function TaskDetails({ workspace }: { workspace: Workspace }) {
     <div className="space-y-1.5" title="Claude gets these in every chat of this workspace">
       {task && <SourceLink task={task} />}
       {task && (
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-x-3 gap-y-1">
           <HelixChangeButton task={task} />
           <BreakdownButton task={task} />
         </div>

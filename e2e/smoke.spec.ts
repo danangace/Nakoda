@@ -691,6 +691,14 @@ test('Update a Helix ticket from its card: review the exact request, then send (
   await page.locator('aside').getByRole('link', { name: 'Tasks', exact: true }).click()
   await page.getByRole('tab', { name: 'Our board' }).click()
   const card = page.getByTestId('task-card').filter({ hasText: '[FE] Link redirect after login' })
+  await page.screenshot({ path: shot('board-card-actions'), animations: 'disabled' })
+  // Nothing sticks out of a card: every action ends inside it.
+  const storyCard = page.getByTestId('task-card').filter({ hasText: 'Invoice Management - Phase 1' })
+  const cardBox = await storyCard.boundingBox()
+  for (const part of [storyCard.getByTestId('helix-breakdown'), storyCard.getByTestId('helix-change'), storyCard.getByRole('link', { name: /Open in source/ })]) {
+    const b = await part.boundingBox()
+    expect(b && cardBox && b.x + b.width <= cardBox.x + cardBox.width).toBe(true)
+  }
   await card.getByTestId('helix-change').click()
   const dialog = page.getByRole('dialog', { name: 'Update T2-3672 in Helix' })
   // Only the moves Helix allows from here.
@@ -785,6 +793,14 @@ test('Update a Helix ticket from its card: review the exact request, then send (
 
   // The same two actions are on the External list, so a ticket does not have to be transferred first.
   await page.getByRole('tab', { name: 'External' }).click()
+  await expect(page.getByTestId('external-list').getByText('T2-3252')).toBeVisible()
+  await page.screenshot({ path: shot('external-row-actions'), animations: 'disabled' })
+  await page.setViewportSize({ width: 1100, height: 800 })
+  await page.screenshot({ path: shot('external-row-actions-narrow'), animations: 'disabled' })
+  // Even narrow, the title stays readable: the actions wrap instead of squeezing it.
+  const titleBox = await page.getByTestId('external-item').first().locator('.truncate').first().boundingBox()
+  expect(titleBox?.width ?? 0).toBeGreaterThan(150)
+  await page.setViewportSize({ width: 1400, height: 900 })
   const external = page.getByTestId('external-item')
   const storyRow = external.filter({ hasText: 'Invoice Management - Phase 1' })
   await storyRow.getByTestId('helix-breakdown').first().click()
