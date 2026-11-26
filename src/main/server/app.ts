@@ -4,9 +4,12 @@ import { serveStatic } from '@hono/node-server/serve-static'
 import { Hono } from 'hono'
 import { setCookie } from 'hono/cookie'
 import { APP_INFO } from '../../shared/app-info'
+import type { AgentId } from '../../shared/schemas'
 import { UserError } from '../errors'
 import { type ModelLister, ModelCatalogs } from '../accounts/models'
 import { registerAccountRoutes } from '../accounts/routes'
+import { registerBreakdownRoutes } from '../breakdown/routes'
+import { BreakdownService } from '../breakdown/service'
 import { registerConnectorRoutes } from '../connectors/routes'
 import { SecretStore } from '../connectors/secrets'
 import { ConnectorService, type ConnectorServiceOptions } from '../connectors/service'
@@ -19,6 +22,7 @@ import { claudeAdapter } from '../native-chat/claude/adapter'
 import { ApprovalManager } from '../native-chat/approvals'
 import { registerChatRoutes } from '../native-chat/routes'
 import { ChatService } from '../native-chat/service'
+import type { AgentAdapter } from '../native-chat/types'
 import { registerSettingsRoutes } from '../settings/routes'
 import { registerProjectRoutes } from '../projects/routes'
 import { StatusTracker } from '../status/tracker'
@@ -39,6 +43,8 @@ export type AppOptions = {
   modelListers?: ModelLister
   /** Where tokens are kept and how Helix is reached (tests pass a temp folder and a fake fetch). */
   connectors?: { secretsDir?: string } & ConnectorServiceOptions
+  /** The agents that can answer a one-off prompt for drafting a breakdown (tests pass a fake; default: Claude). */
+  breakdownAdapters?: Partial<Record<AgentId, AgentAdapter>>
   /** Folder with the built UI; when missing, only the API is served. */
   webRoot?: string
 }
@@ -84,7 +90,9 @@ export function createRuntimeApp(options: AppOptions): { app: Hono; chats: ChatS
   })
   registerSettingsRoutes(app, db)
   registerAccountRoutes(app, db, new ModelCatalogs(db, options.modelListers ?? { claude: claudeAdapter.listModels }))
-  registerConnectorRoutes(app, new ConnectorService(db, new SecretStore(options.connectors?.secretsDir), options.connectors))
+  const connectors = new ConnectorService(db, new SecretStore(options.connectors?.secretsDir), options.connectors)
+  registerConnectorRoutes(app, connectors)
+  registerBreakdownRoutes(app, new BreakdownService(db, docs, connectors, options.breakdownAdapters ?? { claude: claudeAdapter }))
   registerWorkflowRoutes(app, db)
   registerTaskRoutes(app, db)
   registerProjectRoutes(app, db)

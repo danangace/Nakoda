@@ -31,6 +31,10 @@ writeFileSync(
   '---\ntags: [smoke]\n---\n# Smoke vault\n\nSee [[Second note]].\n\n| A | B |\n|---|---|\n| 1 | 2 |\n\n```mermaid\nflowchart LR\n  A --> B\n```\n',
 )
 writeFileSync(join(vault, 'notes', 'Second note.md'), '# Second note\n\nHello from the second note.\n')
+// A spec with its Open Questions next to it: one answered, one not.
+mkdirSync(join(vault, 'spec'), { recursive: true })
+writeFileSync(join(vault, 'spec', 'FE-01 Invoices.md'), '# FE-01 Invoices\n\nAC-1: the list shows invoices.\nAC-4: export to CSV.\n')
+writeFileSync(join(vault, 'spec', 'Open Questions.md'), '# Open Questions\n\n| OQ | Topic | Owner | Blocks coding | Status |\n|---|---|---|---|---|\n| OQ-01 | Cards | PM | no | **decided** 2026-11-07 |\n| OQ-02 | Export format | PM | yes | open |\n')
 
 const db = openDb(':memory:')
 // The smoke tests exercise the approval prompt, so new chats start at "Accept edits" here (the app default is "Full access").
@@ -120,6 +124,12 @@ const fakeHelix = (async (url: string | URL | Request, init?: RequestInit) => {
                     : null
   return json(body ?? { error: 'not_found' }, body ? 200 : 404)
 }) as typeof fetch
+// What Claude answers when asked to draft a breakdown (no real Claude call in e2e).
+const draftAdapter = {
+  agent: 'claude' as const,
+  startTurn: agent.startTurn.bind(agent),
+  complete: async () => '```\n- [BE] Add paged invoice list endpoint (2)\n- [FE] Show invoice list with search (3)\n- Reconcile totals (8)\n```\nNote: AC-4 has no API contract',
+}
 const { app } = createRuntimeApp({
   security: { token: E2E_TOKEN, allowedHosts: localHosts(E2E_PORT) },
   db,
@@ -127,6 +137,7 @@ const { app } = createRuntimeApp({
   webRoot: WEB_ROOT,
   modelListers,
   connectors: { fetch: fakeHelix },
+  breakdownAdapters: { claude: draftAdapter },
 })
 serve({ fetch: app.fetch, hostname: '127.0.0.1', port: E2E_PORT, websocket: { server: new WebSocketServer({ noServer: true }) } }, () =>
   console.info(`e2e server on ${E2E_PORT}`),

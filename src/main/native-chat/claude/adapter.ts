@@ -1,7 +1,8 @@
+import { tmpdir } from 'node:os'
 import { query } from '@anthropic-ai/claude-agent-sdk'
 import { claudeEnv } from '../../accounts/env'
 import type { ModelOption } from '../../../shared/schemas'
-import type { AgentAdapter, Turn, TurnOptions } from '../types'
+import type { AgentAdapter, CompleteOptions, Turn, TurnOptions } from '../types'
 import { readClaudeHistory } from './history'
 import { withIdleSession } from './idle-session'
 import { type SdkLike, mapClaudeMessage } from './map'
@@ -15,6 +16,7 @@ export const claudeAdapter: AgentAdapter = {
   agent: 'claude',
   readHistory: readClaudeHistory,
   listModels: listClaudeModels,
+  complete: completeClaude,
   startTurn(options: TurnOptions): Turn {
     const abortController = new AbortController()
     const run = query({
@@ -57,6 +59,40 @@ export const claudeAdapter: AgentAdapter = {
 
     return { stop: () => abortController.abort(), done }
   },
+}
+
+/**
+ * One answer to one prompt, for a login. Everything that could reach beyond the text is off: no built-in
+ * tools (and any request is denied anyway), no user or project settings, no MCP servers, nothing saved
+ * to the login's history, a single turn, from an empty temp folder.
+ */
+export async function completeClaude(options: CompleteOptions): Promise<string> {
+  const abortController = new AbortController()
+  options.signal?.addEventListener('abort', () => abortController.abort(), { once: true })
+  const run = query({
+    prompt: options.prompt,
+    options: {
+      cwd: tmpdir(),
+      env: claudeEnv(options.configDir),
+      model: options.model,
+      effort: options.effort ?? undefined,
+      systemPrompt: options.system,
+      tools: [],
+      settingSources: [],
+      strictMcpConfig: true,
+      persistSession: false,
+      maxTurns: 1,
+      permissionMode: 'default',
+      abortController,
+      canUseTool: async () => ({ behavior: 'deny', message: 'A draft uses no tools.' }),
+    },
+  })
+  for await (const message of run) {
+    if (message.type !== 'result') continue
+    if (message.subtype === 'success') return message.result
+    throw new Error(`Claude did not finish the answer (${message.subtype}).`)
+  }
+  throw new Error('Claude ended without an answer.')
 }
 
 /**

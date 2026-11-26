@@ -29,6 +29,17 @@ export type TurnOptions = {
   onToolRequest: (request: ToolRequest) => Promise<ApprovalAnswer>
 }
 
+/** One question, one answer: no tools, no files read or written, no session kept. */
+export type CompleteOptions = {
+  /** Account login folder (CLAUDE_CONFIG_DIR / CODEX_HOME). */
+  configDir: string
+  model: string
+  effort: Effort | null
+  system: string
+  prompt: string
+  signal?: AbortSignal
+}
+
 export type Turn = {
   /** Stop the running turn. */
   stop: () => void
@@ -45,6 +56,8 @@ export type AgentAdapter = {
   startTurn: (options: TurnOptions) => Turn
   /** Rebuild a chat's events from the agent's own transcript (after a restart). */
   readHistory?: (configDir: string, sessionId: string) => AdapterEvent[]
+  /** A single text answer to a prompt, for work that is not a chat (e.g. drafting a breakdown). */
+  complete?: (options: CompleteOptions) => Promise<string>
   /** The models this login may use (no message is sent, nothing is billed). */
   listModels?: (configDir: string) => Promise<ModelOption[]>
 }

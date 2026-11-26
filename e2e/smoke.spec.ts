@@ -724,9 +724,18 @@ test('Update a Helix ticket from its card: review the exact request, then send (
   await story.getByTestId('helix-breakdown').click()
   const bd = page.getByRole('dialog', { name: 'Break down T2-3252' })
   await expect(bd).toContainText('2 subtasks already')
-  await bd.getByLabel('Find a document').fill('README')
-  await bd.getByTestId('doc-list').getByRole('button', { name: 'README.md' }).click()
-  await expect(bd.getByTestId('doc-view').getByRole('heading', { name: 'Smoke vault' })).toBeVisible()
+  await bd.getByLabel('Find a document').fill('FE-01')
+  await bd.getByTestId('doc-list').getByRole('button', { name: 'spec/FE-01 Invoices.md' }).click()
+  await expect(bd.getByTestId('doc-view').getByRole('heading', { name: 'FE-01 Invoices' })).toBeVisible()
+  // Is the spec ready? The Open Questions file next to it says one question is still open and blocks coding.
+  await expect(bd.getByTestId('spec-check')).toContainText('1 of 2 open questions are not answered')
+  await expect(bd.getByTestId('spec-check')).toContainText('OQ-02 Export format (blocks coding)')
+  // A first draft from Claude fills the list; it is read and fixed like anything typed.
+  await bd.getByLabel('Instruction for Claude').fill('The API for export does not exist yet')
+  await bd.getByTestId('draft-with-claude').click()
+  await expect(bd.getByLabel('Subtasks', { exact: true })).toHaveValue(/- \[BE\] Add paged invoice list endpoint \(2\)\n- \[FE\] Show invoice list with search \(3\)\n- Reconcile totals \(8\)\nNote: AC-4 has no API contract/)
+  await expect(bd).toContainText('Drafted by Claude')
+  await page.screenshot({ path: shot('breakdown-draft'), animations: 'disabled' })
   await bd.getByLabel('Subtasks', { exact: true }).fill('- [BE] Add paged invoice list endpoint (2)\n- [FE] Show invoice export dialog (3)\n- Reconcile totals (8)\nNote: AC-4 has no API contract')
   await bd.getByRole('button', { name: 'Continue' }).click()
   // The table keeps what you can fix: a tag is missing, the points are too big, one repeats an existing subtask.
@@ -752,6 +761,13 @@ test('Update a Helix ticket from its card: review the exact request, then send (
   await expect(bd).toContainText('Created 3')
   await expect(bd).toContainText('T2-4001')
   await bd.getByText('Close', { exact: true }).click()
+
+  // One document per ticket: opening it again comes back to that document and says what came of it.
+  await story.getByTestId('helix-breakdown').click()
+  const again = page.getByRole('dialog', { name: 'Break down T2-3252' })
+  await expect(again.getByTestId('doc-view').getByRole('heading', { name: 'FE-01 Invoices' })).toBeVisible()
+  await expect(again).toContainText('You broke this ticket down from this document before: 3 subtasks created')
+  await again.getByRole('button', { name: 'Cancel' }).click()
 
   // Clean up.
   await page.locator('aside').getByRole('button', { name: 'Settings', exact: true }).click()

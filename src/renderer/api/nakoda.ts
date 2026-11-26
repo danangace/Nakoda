@@ -39,6 +39,27 @@ import { request } from './http-client'
 
 const Ok = z.object({ ok: z.literal(true) })
 
+export const SpecCheck = z.object({
+  questionsPath: z.string().nullable(),
+  total: z.number(),
+  open: z.array(z.object({ id: z.string(), topic: z.string(), blocksCoding: z.boolean() })),
+})
+export type SpecCheck = z.infer<typeof SpecCheck>
+
+export const BreakdownDraft = z.object({
+  text: z.string(),
+  notes: z.array(z.string()),
+  count: z.number(),
+  truncated: z.boolean(),
+  model: z.string(),
+  account: z.string(),
+  rules: z.enum(['vault', 'built-in']),
+})
+export type BreakdownDraft = z.infer<typeof BreakdownDraft>
+
+export const BreakdownSource = z.object({ docPath: z.string(), created: z.number(), updatedAt: z.string() })
+export type BreakdownSource = z.infer<typeof BreakdownSource>
+
 export const LoginView = z.object({
   id: z.string(),
   state: z.enum(['starting', 'waiting_for_user', 'done', 'failed', 'cancelled']),
@@ -154,6 +175,10 @@ export const api = {
   /** The few fields of a Helix ticket the change dialog needs. */
   connectorTicket: (id: string, key: string) =>
     request('GET', `/api/connectors/${id}/tickets/${encodeURIComponent(key)}`, z.object({ key: z.string(), title: z.string(), type: z.string(), status: z.string(), board: z.string().nullable(), url: z.string() })),
+  breakdownSpecCheck: (path: string) => request('GET', `/api/breakdown/spec-check?path=${encodeURIComponent(path)}`, SpecCheck),
+  breakdownDraft: (input: { connectorId: string; key: string; docPath: string; hint?: string }) => request('POST', '/api/breakdown/draft', BreakdownDraft, input),
+  breakdownSource: (connectorId: string, key: string) => request('GET', `/api/breakdown/source?connectorId=${encodeURIComponent(connectorId)}&key=${encodeURIComponent(key)}`, BreakdownSource.nullable()),
+  saveBreakdownSource: (input: { connectorId: string; key: string; docPath: string; created: number }) => request('PUT', '/api/breakdown/source', BreakdownSource, input),
   connectorOwner: (id: string) => request('GET', `/api/connectors/${id}/me`, z.object({ id: z.number(), name: z.string(), username: z.string() })),
   helixTransitions: (id: string, boardId: number) => request('GET', `/api/connectors/${id}/boards/${boardId}/transitions`, AllowedTransitions),
   connectorBoards: (id: string) => request('GET', `/api/connectors/${id}/boards`, z.array(z.object({ id: z.number(), name: z.string() }))),

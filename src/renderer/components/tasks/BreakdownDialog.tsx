@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { MAX_SUBTASKS, PARENT_TYPES_FOR_SUBTASKS, checkRow, findSimilar, normalizeTitle, parseSubtaskList } from '../../../shared/breakdown'
 import type { Connector, SubtaskDraft, WriteOutcome, WritePreview } from '../../../shared/connectors'
 import type { DocNodeT } from '../../../shared/schemas'
-import { type DocFile, api } from '../../api/nakoda'
+import { type BreakdownSource, type DocFile, type SpecCheck, api } from '../../api/nakoda'
 import { cn } from '../../lib/cn'
 import { errorText } from '../../lib/errors'
 import { wikiToMarkdown } from '../../lib/wiki'
@@ -12,6 +12,7 @@ import { Button } from '../ui/Button'
 import { Checkbox } from '../ui/Checkbox'
 import { Field, Input, Notice, TextArea } from '../ui/Field'
 import { Modal } from '../ui/Modal'
+import { useConfirm } from '../ui/confirm'
 
 type Step = 'source' | 'rows' | 'preview' | 'sent'
 type Source = 'doc' | 'text'
@@ -47,6 +48,13 @@ export function BreakdownDialog({ connector, ticketKey, onClose, onDone }: { con
   const [outcome, setOutcome] = useState<WriteOutcome | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const confirm = useConfirm()
+  const [check, setCheck] = useState<SpecCheck | null>(null)
+  const [previous, setPrevious] = useState<BreakdownSource | null>(null)
+  const [instruction, setInstruction] = useState('')
+  const [drafting, setDrafting] = useState(false)
+  const [drafted, setDrafted] = useState<string | null>(null)
+  const [truncated, setTruncated] = useState(false)
 
   useEffect(() => {
     let alive = true
@@ -57,6 +65,12 @@ export function BreakdownDialog({ connector, ticketKey, onClose, onDone }: { con
         setParent({ title: ticket.title, type: ticket.type, status: ticket.status })
         setExisting(children.filter((c) => c.type === 'subtask').map((c) => ({ key: c.key, title: c.title })))
         setMe({ id: owner.id, name: owner.name })
+        // One document per parent ticket: come back to the one it was broken down from.
+        const before = await api.breakdownSource(connector.id, ticketKey).catch(() => null)
+        if (alive && before) {
+          setPrevious(before)
+          void pick(before.docPath)
+        }
       } catch (e) {
         if (alive) setError(errorText(e))
       }
@@ -83,18 +97,38 @@ export function BreakdownDialog({ connector, ticketKey, onClose, onDone }: { con
         : null
     : null
 
-  const pick = (path: string) =>
-    api.docsFile(path).then(
-      (d) => {
+  const pick = (path: string) => {
+    setCheck(null)
+    return Promise.all([api.docsFile(path), api.breakdownSpecCheck(path).catch(() => null)]).then(
+      ([d, c]) => {
         setDoc(d)
+        setCheck(c)
         setError(null)
       },
       (e: unknown) => setError(errorText(e)),
     )
+  }
   const matches = useMemo(() => {
     const q = filter.trim().toLowerCase()
     return (tree ?? []).filter((p) => !q || p.toLowerCase().includes(q)).slice(0, 60)
   }, [tree, filter])
+
+  const draftWithClaude = async () => {
+    if (!doc) return
+    if (text.trim() && !(await confirm({ title: 'Replace the list with a draft?', description: 'What you wrote in the list is replaced by Claude’s draft.', confirmLabel: 'Replace' }))) return
+    setDrafting(true)
+    setError(null)
+    try {
+      const result = await api.breakdownDraft({ connectorId: connector.id, key: ticketKey, docPath: doc.path, ...(instruction.trim() ? { hint: instruction.trim() } : {}) })
+      setText(result.text)
+      setTruncated(result.truncated)
+      setDrafted(`Drafted by Claude (${result.model}, account ${result.account}). Read it and fix what is off before you continue.`)
+    } catch (e) {
+      setError(errorText(e))
+    } finally {
+      setDrafting(false)
+    }
+  }
 
   const toRows = () => {
     const parsed = parseSubtaskList(text)
@@ -143,7 +177,10 @@ export function BreakdownDialog({ connector, ticketKey, onClose, onDone }: { con
       const result = await api.applyHelixWrite(connector.id, { action: 'subtasks', parentKey: ticketKey, items: items() })
       setOutcome(result)
       setStep('sent')
-      if (result.done.length > 0) onDone?.()
+      if (result.done.length > 0) {
+        onDone?.()
+        if (doc) void api.saveBreakdownSource({ connectorId: connector.id, key: ticketKey, docPath: doc.path, created: result.done.length }).catch(() => undefined)
+      }
       if (result.ok) toast.success('Subtasks created', `${result.done.length} under ${ticketKey}`)
     })
   const backToEdit = () => {
@@ -198,12 +235,45 @@ export function BreakdownDialog({ connector, ticketKey, onClose, onDone }: { con
                       </li>
                     ))}
                   </ul>
+                  {previous && doc?.path === previous.docPath && (
+                    <Notice tone="info">
+                      You broke this ticket down from this document before: {previous.created} subtask{previous.created === 1 ? '' : 's'} created, last {new Date(previous.updatedAt).toLocaleDateString()}.
+                    </Notice>
+                  )}
+                  {previous && doc && doc.path !== previous.docPath && (
+                    <Notice tone="info">This ticket was broken down from {previous.docPath} before. One document stands for one ticket: check you mean this one.</Notice>
+                  )}
+                  {check && (
+                    <div data-testid="spec-check">
+                      {check.questionsPath === null ? (
+                        <Notice tone="info">No Open Questions file next to this document. Be sure its questions are answered.</Notice>
+                      ) : check.open.length === 0 ? (
+                        <Notice tone="ok">Open Questions: all {check.total} answered.</Notice>
+                      ) : (
+                        <Notice tone={check.open.some((q) => q.blocksCoding) ? 'error' : 'info'}>
+                          {check.open.length} of {check.total} open questions are not answered:{' '}
+                          {check.open.map((q) => `${q.id} ${q.topic}${q.blocksCoding ? ' (blocks coding)' : ''}`).join(' · ')}. A breakdown from an unfinished spec guesses the gaps.
+                        </Notice>
+                      )}
+                    </div>
+                  )}
                   <div className="max-h-[42vh] overflow-y-auto rounded-md border border-border bg-background/40 p-3" data-testid="doc-view">
                     {doc ? <Markdown source={wikiToMarkdown(doc.body, doc.links)} onOpenDoc={(p) => void pick(p)} /> : <p className="text-sm text-muted-foreground">Pick a document to read it here while you write the list.</p>}
                   </div>
                 </div>
               )}
               <div className="space-y-3">
+                {source === 'doc' && (
+                  <div className="space-y-1.5 rounded-md border border-border p-2.5">
+                    <Input aria-label="Instruction for Claude" placeholder="Optional: e.g. the API already exists, no [BE] work" value={instruction} onChange={(e) => setInstruction(e.target.value)} />
+                    <Button data-testid="draft-with-claude" disabled={!doc || drafting} onClick={() => void draftWithClaude()}>
+                      {drafting ? 'Drafting… (about a minute)' : 'Draft with Claude'}
+                    </Button>
+                    {!doc && <p className="text-xs text-muted-foreground">Pick the spec first. Claude reads it with the ticket and the subtasks that already exist; nothing is sent to Helix.</p>}
+                  </div>
+                )}
+                {drafted && <Notice tone="info">{drafted}</Notice>}
+                {truncated && <Notice tone="error">The spec is very long and was cut before Claude read it. Check that nothing important was left out.</Notice>}
                 <Field label="Subtasks" hint={FORMAT_HINT}>
                   <TextArea aria-label="Subtasks" rows={wide ? 14 : 8} placeholder={EXAMPLE} className="font-mono text-xs" value={text} onChange={(e) => setText(e.target.value)} />
                 </Field>

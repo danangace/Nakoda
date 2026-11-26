@@ -89,3 +89,8 @@ export function findSimilar(title: string, existing: { key: string; title: strin
     }) ?? null
   )
 }
+
+/** The list back to its line format: what a person edits and what the parser reads. */
+export function formatSubtaskList(rows: ParsedRow[], notes: string[] = []): string {
+  return [...rows.map((r) => `- ${r.title}${r.storyPoint === null ? '' : ` (${r.storyPoint})`}`), ...notes.map((n) => `Note: ${n}`)].join('\n')
+}
