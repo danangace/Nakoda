@@ -10,8 +10,7 @@ import { ArchiveButton } from '../components/workspace/ArchiveButton'
 import { EditWorkspaceModal } from '../components/workspace/EditWorkspaceModal'
 import { LifecycleBadge } from '../components/workspace/LifecycleBadge'
 import { STATUS_LABEL, StatusDot } from '../components/workspace/StatusDot'
-import { BreakdownButton } from '../components/tasks/BreakdownButton'
-import { HelixChangeButton } from '../components/tasks/HelixChangeButton'
+import { TicketMenu } from '../components/tasks/TicketMenu'
 import { Collapsible } from '../components/ui/Collapsible'
 import { Notice } from '../components/ui/Field'
 import { Select } from '../components/ui/Select'
@@ -127,6 +126,19 @@ function SourceLink({ task }: { task: Task }) {
   )
 }
 
+/** The link to the ticket in Helix, with its actions (Break down, Update Helix) in a "⋯" menu beside it. */
+function SourceRow({ task }: { task: Task }) {
+  if (!task.externalUrl) return null
+  return (
+    <div className="flex items-center gap-1.5">
+      <div className="min-w-0 flex-1">
+        <SourceLink task={task} />
+      </div>
+      <TicketMenu ticket={{ source: task.source, key: task.externalId, url: task.externalUrl, kind: task.kind }} showOpen={false} />
+    </div>
+  )
+}
+
 function TaskDetails({ workspace }: { workspace: Workspace }) {
   const workflow = useWorkflow(workspace.workflowId)
   const task = useWorkspaceTask(workspace.id)
@@ -134,25 +146,13 @@ function TaskDetails({ workspace }: { workspace: Workspace }) {
     return (
       <div className="space-y-1.5">
         <div className="text-sm text-foreground/80">Free chat</div>
-        {task && <SourceLink task={task} />}
-        {task && (
-          <div className="flex flex-wrap gap-x-3 gap-y-1">
-            <HelixChangeButton task={task} />
-            <BreakdownButton task={task} />
-          </div>
-        )}
+        {task && <SourceRow task={task} />}
       </div>
     )
   }
   return (
     <div className="space-y-1.5" title="Claude gets these in every chat of this workspace">
-      {task && <SourceLink task={task} />}
-      {task && (
-        <div className="flex flex-wrap gap-x-3 gap-y-1">
-          <HelixChangeButton task={task} />
-          <BreakdownButton task={task} />
-        </div>
-      )}
+      {task && <SourceRow task={task} />}
       <div className="mb-1 text-sm font-medium text-info">{workflow?.name ?? 'Workflow'}</div>
       {(workflow?.fields ?? []).map((f) => (
         <DetailRow key={f.key} label={f.label} value={workspace.values[f.key] ?? ''} />

@@ -1,4 +1,4 @@
-import { ExternalLink, Plus } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import type { Workflow } from '../../../shared/schemas'
 import { checkReady } from '../../../shared/readiness'
@@ -13,8 +13,7 @@ import { Button } from '../ui/Button'
 import { Notice } from '../ui/Field'
 import { StatusDot } from '../workspace/StatusDot'
 import { AssignModal } from './AssignModal'
-import { BreakdownButton } from './BreakdownButton'
-import { HelixChangeButton } from './HelixChangeButton'
+import { TicketMenu } from './TicketMenu'
 import { TaskModal } from './TaskModal'
 
 type Dialog = { kind: 'edit'; task?: Task } | { kind: 'assign'; task: Task } | null
@@ -36,7 +35,10 @@ function Card({ task, workflows, onOpen }: { task: Task; workflows: Workflow[]; 
       onKeyDown={(e) => e.key === 'Enter' && onOpen()}
       className="cursor-pointer space-y-1.5 rounded-md border border-border bg-card p-3 text-left hover:border-ring/60"
     >
-      <div className="text-sm text-foreground">{task.title}</div>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 text-sm text-foreground">{task.title}</div>
+        <TicketMenu ticket={{ source: task.source, key: task.externalId, url: task.externalUrl, kind: task.kind }} />
+      </div>
       <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
         {task.kind === 'defect' && <span className="rounded bg-destructive/15 px-1.5 py-0.5 font-medium text-red-200">Defect</span>}
         {task.priority && <span className="rounded bg-secondary px-1.5 py-0.5 text-foreground/70">{task.priority}</span>}
@@ -48,37 +50,19 @@ function Card({ task, workflows, onOpen }: { task: Task; workflows: Workflow[]; 
             <span className="rounded bg-warning/15 px-1.5 py-0.5 font-medium text-warning">Missing: {missing.join(', ')}</span>
           ))}
       </div>
-      {(workspace || task.externalUrl) && (
-        <div className="flex items-center justify-between gap-2 text-xs">
-          {workspace ? (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation()
-                navigate({ name: 'workspace', id: workspace.id })
-              }}
-              className="flex min-w-0 items-center gap-1.5 text-foreground/70 hover:text-foreground"
-            >
-              <StatusDot status={workspace.status} />
-              <span className="truncate">{workspace.name}</span>
-            </button>
-          ) : (
-            <span />
-          )}
-          {task.externalUrl && (
-            <span className="flex shrink-0 items-center gap-3">
-              <a href={task.externalUrl} target="_blank" rel="noreferrer noopener" onClick={(e) => e.stopPropagation()} className="inline-flex shrink-0 items-center gap-1 text-foreground/60 hover:text-foreground">
-                Open in source <ExternalLink className="size-3" />
-              </a>
-            </span>
-          )}
-        </div>
+      {workspace && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            navigate({ name: 'workspace', id: workspace.id })
+          }}
+          className="flex min-w-0 items-center gap-1.5 text-xs text-foreground/70 hover:text-foreground"
+        >
+          <StatusDot status={workspace.status} />
+          <span className="truncate">{workspace.name}</span>
+        </button>
       )}
-      {/* Own row, so a narrow card never pushes "Open in source" out; empty (and hidden) without a write token. */}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 empty:hidden">
-        <BreakdownButton task={task} />
-        <HelixChangeButton task={task} />
-      </div>
     </div>
   )
 }

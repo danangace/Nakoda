@@ -12,6 +12,12 @@ async function pick(page: Page, trigger: Locator, option: string) {
   await expect(trigger).toContainText(option)
 }
 
+/** Open a ticket's "⋯" menu inside `scope` and choose an item (the menu is drawn on the page, not inside the card). */
+async function chooseTicketAction(page: Page, scope: Locator, item: 'helix-change' | 'helix-breakdown' | 'open-in-helix') {
+  await scope.getByTestId('ticket-menu').click()
+  await page.getByTestId(item).click()
+}
+
 test('start, accounts, docs, workspace and chat (AC-B1 smoke)', async ({ page }) => {
   // Start: the link from `nakoda start` carries the token; it becomes a cookie and leaves the URL.
   await page.goto(`/?token=${TOKEN}`)
@@ -472,7 +478,11 @@ test('Connect Helix in Settings, then read the External tab (read-only)', async 
   await pick(page, page.getByLabel('Status', { exact: true }), 'All statuses')
   await expect(list.locator('li', { hasText: 'T2-3672' }).getByText('Defect')).toBeVisible()
   await expect(list.locator('li', { hasText: 'T2-3252' }).getByText('Task', { exact: true })).toBeVisible()
-  await expect(list.locator('li', { hasText: 'T2-3672' }).getByRole('link', { name: /Open in source/ })).toHaveAttribute('href', 'https://helix.example.test/tickets/T2-3672')
+  // One "⋯" menu per row; its first item is the link to the ticket in Helix.
+  await list.locator('li', { hasText: 'T2-3672' }).getByTestId('ticket-menu').click()
+  await expect(page.getByTestId('open-in-helix')).toHaveAttribute('href', 'https://helix.example.test/tickets/T2-3672')
+  await expect(page.getByTestId('helix-change')).toHaveCount(0) // read-only: nothing to change yet
+  await page.keyboard.press('Escape')
   // Subtasks: Helix search never lists them, so a story opens to show its children.
   const storyItem = page.getByTestId('external-item').filter({ hasText: 'Invoice Management - Phase 1' })
   await storyItem.getByRole('button', { name: 'Show subtasks of T2-3252' }).click()
@@ -692,14 +702,23 @@ test('Update a Helix ticket from its card: review the exact request, then send (
   await page.getByRole('tab', { name: 'Our board' }).click()
   const card = page.getByTestId('task-card').filter({ hasText: '[FE] Link redirect after login' })
   await page.screenshot({ path: shot('board-card-actions'), animations: 'disabled' })
-  // Nothing sticks out of a card: every action ends inside it.
+  // One "⋯" per card, inside it, with the three choices; it never pushes anything out of the card.
   const storyCard = page.getByTestId('task-card').filter({ hasText: 'Invoice Management - Phase 1' })
   const cardBox = await storyCard.boundingBox()
-  for (const part of [storyCard.getByTestId('helix-breakdown'), storyCard.getByTestId('helix-change'), storyCard.getByRole('link', { name: /Open in source/ })]) {
-    const b = await part.boundingBox()
-    expect(b && cardBox && b.x + b.width <= cardBox.x + cardBox.width).toBe(true)
-  }
-  await card.getByTestId('helix-change').click()
+  const menuBox = await storyCard.getByTestId('ticket-menu').boundingBox()
+  expect(menuBox && cardBox && menuBox.x + menuBox.width <= cardBox.x + cardBox.width && menuBox.y >= cardBox.y).toBe(true)
+  await storyCard.getByTestId('ticket-menu').click()
+  await expect(page.getByTestId('open-in-helix')).toBeVisible()
+  await expect(page.getByTestId('helix-breakdown')).toBeVisible()
+  await expect(page.getByTestId('helix-change')).toBeVisible()
+  await page.waitForTimeout(300) // let the popup finish fading in before the picture
+  await page.screenshot({ path: shot('ticket-menu-open') })
+  await page.keyboard.press('Escape')
+  // A defect has no subtasks to plan: no Break down in its menu.
+  await card.getByTestId('ticket-menu').click()
+  await expect(page.getByTestId('helix-breakdown')).toHaveCount(0)
+  await page.keyboard.press('Escape')
+  await chooseTicketAction(page, card, 'helix-change')
   const dialog = page.getByRole('dialog', { name: 'Update T2-3672 in Helix' })
   // Only the moves Helix allows from here.
   await pick(page, dialog.getByLabel('Move to'), 'In testing')
@@ -718,7 +737,7 @@ test('Update a Helix ticket from its card: review the exact request, then send (
   await expect(page.getByRole('dialog')).toHaveCount(0)
 
   // A comment goes the same way.
-  await card.getByTestId('helix-change').click()
+  await chooseTicketAction(page, card, 'helix-change')
   await page.getByRole('tab', { name: 'Comment' }).click()
   await page.getByLabel('Comment', { exact: true }).fill('Checked on staging.')
   await page.getByRole('button', { name: 'Review' }).click()
@@ -729,7 +748,7 @@ test('Update a Helix ticket from its card: review the exact request, then send (
 
   // Break down: add subtasks under a story somebody else wrote, with a document open beside the list.
   const story = page.getByTestId('task-card').filter({ hasText: 'Invoice Management - Phase 1' })
-  await story.getByTestId('helix-breakdown').click()
+  await chooseTicketAction(page, story, 'helix-breakdown')
   const bd = page.getByRole('dialog', { name: 'Break down T2-3252' })
   await expect(bd).toContainText('2 subtasks already')
   // The default source is a document that already holds the list; a raw spec is the other one.
@@ -774,7 +793,7 @@ test('Update a Helix ticket from its card: review the exact request, then send (
   await bd.getByText('Close', { exact: true }).click()
 
   // One document per ticket: opening it again comes back to that document and says what came of it.
-  await story.getByTestId('helix-breakdown').click()
+  await chooseTicketAction(page, story, 'helix-breakdown')
   const again = page.getByRole('dialog', { name: 'Break down T2-3252' })
   await expect(again.getByTestId('doc-view').getByRole('heading', { name: 'FE-01 Invoices' })).toBeVisible()
   await expect(again).toContainText('You broke this ticket down from this document before: 3 subtasks created')
@@ -803,13 +822,14 @@ test('Update a Helix ticket from its card: review the exact request, then send (
   await page.setViewportSize({ width: 1400, height: 900 })
   const external = page.getByTestId('external-item')
   const storyRow = external.filter({ hasText: 'Invoice Management - Phase 1' })
-  await storyRow.getByTestId('helix-breakdown').first().click()
+  await chooseTicketAction(page, storyRow.first(), 'helix-breakdown')
   await expect(page.getByRole('dialog', { name: 'Break down T2-3252' })).toBeVisible()
   await page.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click()
   const defectRow = external.filter({ hasText: '[FE] Link redirect after login' })
   // A defect has no subtasks to plan, but it can still be updated.
-  await expect(defectRow.getByTestId('helix-breakdown')).toHaveCount(0)
-  await defectRow.getByTestId('helix-change').click()
+  await defectRow.getByTestId('ticket-menu').click()
+  await expect(page.getByTestId('helix-breakdown')).toHaveCount(0)
+  await page.getByTestId('helix-change').click()
   await expect(page.getByRole('dialog', { name: 'Update T2-3672 in Helix' })).toBeVisible()
   await page.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click()
 

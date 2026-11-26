@@ -1,6 +1,5 @@
-import { ChevronRight, ExternalLink, RefreshCw } from 'lucide-react'
+import { ChevronRight, RefreshCw } from 'lucide-react'
 import { type ReactNode, useEffect, useRef, useState } from 'react'
-import { PARENT_TYPES_FOR_SUBTASKS } from '../../../shared/breakdown'
 import { type Connector, type ExternalPage, type ExternalTicket, HELIX_STATUSES, HELIX_SUBTASK_STATUSES, type Iteration, statusCategory } from '../../../shared/connectors'
 import type { TaskDefaults } from '../../../shared/schemas'
 import { api } from '../../api/nakoda'
@@ -13,8 +12,7 @@ import { toast } from '../../store/toast'
 import { Button } from '../ui/Button'
 import { Notice } from '../ui/Field'
 import { Select } from '../ui/Select'
-import { BreakdownButton } from './BreakdownButton'
-import { HelixChangeButton } from './HelixChangeButton'
+import { TicketMenu } from './TicketMenu'
 
 const ALL = 'all'
 
@@ -29,7 +27,6 @@ type RowActions = {
 }
 
 function Row({ t, child, actions, toggle, connectorId, onChanged }: { t: ExternalTicket; child?: boolean; actions: RowActions; toggle?: ReactNode; connectorId: string; onChanged?: () => void }) {
-  const asTask = { source: 'helix', externalId: t.key, kind: t.kind } as const
   return (
     <div className={cn('flex flex-wrap items-center gap-x-3 gap-y-1.5 py-2.5 pr-3', child ? 'pl-10' : 'pl-3')}>
       <span className="flex w-24 shrink-0 items-center gap-1 font-mono text-xs text-muted-foreground">
@@ -52,13 +49,7 @@ function Row({ t, child, actions, toggle, connectorId, onChanged }: { t: Externa
           {actions.copying === t.key ? 'Copying…' : 'Transfer'}
         </Button>
       )}
-      <span className="flex shrink-0 items-center gap-0.5 empty:hidden">
-        <HelixChangeButton task={asTask} connectorId={connectorId} compact onDone={onChanged} />
-        {!child && PARENT_TYPES_FOR_SUBTASKS.includes(t.type as (typeof PARENT_TYPES_FOR_SUBTASKS)[number]) && <BreakdownButton task={asTask} connectorId={connectorId} compact onDone={onChanged} />}
-      </span>
-      <a href={t.url} target="_blank" rel="noreferrer noopener" className="inline-flex shrink-0 items-center gap-1 text-xs text-foreground/70 hover:text-foreground">
-        Open in source <ExternalLink className="size-3" />
-      </a>
+      <TicketMenu ticket={{ source: 'helix', key: t.key, url: t.url, kind: t.kind, type: t.type }} connectorId={connectorId} onDone={onChanged} />
     </div>
   )
 }
