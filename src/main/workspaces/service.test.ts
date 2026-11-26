@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_SETTINGS, addRepo, saveSettings } from '../settings/store'
 import { openDb } from '../sqlite/db'
-import { autoName, createWorkspace, listWorkspaces, updateWorkspace } from './service'
+import { autoName, createWorkspace, getWorkspace, listWorkspaces, setLifecycle, updateWorkspace } from './service'
 import { gitOut, makeRepoWithOrigin } from './testing'
 
 async function setup(setupScript = '') {
@@ -35,6 +35,48 @@ describe('updateWorkspace', () => {
     const { db, repoId } = await setup()
     const ws = await createWorkspace(db, { repoId, name: 'w' })
     expect(() => updateWorkspace(db, ws.id, { workflowId: 'nope', values: {} })).toThrow()
+  })
+})
+
+const link = (db: ReturnType<typeof openDb>, id: string, workspaceId: string, column: string, at: string) =>
+  db.prepare("INSERT INTO tasks (id, title, board_column, workspace_id, created_at, updated_at) VALUES (?, 't', ?, ?, ?, ?)").run(id, column, workspaceId, at, at)
+
+describe('lifecycle', () => {
+  it('is empty until a ticket or you say something', async () => {
+    const { db, repoId } = await setup()
+    const ws = await createWorkspace(db, { repoId, name: 'plain' })
+    expect(ws).toMatchObject({ lifecycle: null, lifecycleSource: null })
+  })
+
+  it('follows the ticket worked on last, mapping Backlog to planning and Review to in review', async () => {
+    const { db, repoId } = await setup()
+    const ws = await createWorkspace(db, { repoId, name: 'follows' })
+    link(db, 'a', ws.id, 'backlog', '2026-11-01T00:00:00Z')
+    expect(getWorkspace(db, ws.id)).toMatchObject({ lifecycle: 'planning', lifecycleSource: 'task' })
+    link(db, 'b', ws.id, 'review', '2026-11-02T00:00:00Z')
+    expect(getWorkspace(db, ws.id)).toMatchObject({ lifecycle: 'in_review', lifecycleSource: 'task' })
+    db.prepare("UPDATE tasks SET board_column = 'done', updated_at = '2026-11-03T00:00:00Z' WHERE id = 'b'").run()
+    expect(listWorkspaces(db).find((w) => w.id === ws.id)).toMatchObject({ lifecycle: 'done', lifecycleSource: 'task' })
+  })
+
+  it('what you set wins over the ticket, and null hands it back', async () => {
+    const { db, repoId } = await setup()
+    const ws = await createWorkspace(db, { repoId, name: 'manual' })
+    link(db, 'a', ws.id, 'in_progress', '2026-11-01T00:00:00Z')
+    expect(setLifecycle(db, ws.id, { lifecycle: 'dropped' })).toMatchObject({ lifecycle: 'dropped', lifecycleSource: 'manual' })
+    // The ticket moving on does not undo your choice.
+    db.prepare("UPDATE tasks SET board_column = 'review' WHERE id = 'a'").run()
+    expect(getWorkspace(db, ws.id)).toMatchObject({ lifecycle: 'dropped', lifecycleSource: 'manual' })
+    expect(setLifecycle(db, ws.id, { lifecycle: null })).toMatchObject({ lifecycle: 'in_review', lifecycleSource: 'task' })
+  })
+
+  it('rejects a value that is not a state and an archived workspace', async () => {
+    const { db, repoId } = await setup()
+    const ws = await createWorkspace(db, { repoId, name: 'bad' })
+    expect(() => setLifecycle(db, ws.id, { lifecycle: 'finished' })).toThrow(/Pick planning/)
+    expect(() => setLifecycle(db, ws.id, {})).toThrow()
+    db.prepare("UPDATE workspaces SET archived_at = 'now' WHERE id = ?").run(ws.id)
+    expect(() => setLifecycle(db, ws.id, { lifecycle: 'done' })).toThrow(/archived/)
   })
 })
 

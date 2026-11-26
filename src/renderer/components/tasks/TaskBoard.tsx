@@ -98,6 +98,8 @@ export function TaskBoard() {
     try {
       await api.moveTask(id, column)
       setError(null)
+      // A workspace follows its ticket's column, so the sidebar needs the new state.
+      void load()
     } catch (e) {
       setError(errorText(e))
     }

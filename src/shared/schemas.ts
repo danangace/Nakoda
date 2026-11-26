@@ -110,6 +110,29 @@ export type DetectedLogin = z.infer<typeof DetectedLogin>
 export const WorkspaceStatus = z.enum(['idle', 'working', 'needs_approval', 'waiting', 'done', 'error'])
 export type WorkspaceStatus = z.infer<typeof WorkspaceStatus>
 
+/**
+ * Where the work stands, as opposed to what the agent is doing right now (WorkspaceStatus).
+ * Follows the assigned ticket's board column unless set by hand.
+ */
+export const LIFECYCLES = ['planning', 'in_progress', 'in_review', 'done', 'dropped'] as const
+export const Lifecycle = z.enum(LIFECYCLES)
+export type Lifecycle = z.infer<typeof Lifecycle>
+
+export const LIFECYCLE_LABEL: Record<Lifecycle, string> = {
+  planning: 'Planning',
+  in_progress: 'In progress',
+  in_review: 'In review',
+  done: 'Done',
+  dropped: 'Dropped',
+}
+
+/** Nothing left to do here: the worktree can go. */
+export const isFinished = (l: Lifecycle | null): boolean => l === 'done' || l === 'dropped'
+
+/** `lifecycle: null` hands the state back to the assigned ticket. */
+export const LifecycleInput = z.object({ lifecycle: Lifecycle.nullable() })
+export type LifecycleInput = z.infer<typeof LifecycleInput>
+
 /** Field types a workflow can ask for (D-16). */
 export const FieldType = z.enum(['text', 'link', 'docsFolder', 'branch', 'choice', 'longtext', 'links'])
 export type FieldType = z.infer<typeof FieldType>
@@ -174,6 +197,10 @@ export const Workspace = z.object({
   stage: z.string(),
   setupStatus: z.enum(['pending', 'running', 'done', 'failed', 'skipped']),
   status: WorkspaceStatus,
+  /** Null when nothing says (no ticket, never set). */
+  lifecycle: Lifecycle.nullable().default(null),
+  /** `task` = follows the assigned ticket, `manual` = chosen by you. */
+  lifecycleSource: z.enum(['task', 'manual']).nullable().default(null),
   /** The most recently used chat's agent + model (sidebar shows "Claude Sonnet"). */
   agent: z
     .object({

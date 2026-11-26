@@ -1,7 +1,8 @@
 import { randomUUID } from 'node:crypto'
 import { existsSync, mkdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { type AgentId, type Workspace, WorkspaceInput, type WorkspaceStatus, WorkspaceUpdate } from '../../shared/schemas'
+import { type AgentId, type Lifecycle, LifecycleInput, type Workspace, WorkspaceInput, type WorkspaceStatus, WorkspaceUpdate } from '../../shared/schemas'
+import type { BoardColumn } from '../../shared/tasks'
 import { getWorkflow, resolveValues } from '../workflows/service'
 import { UserError } from '../errors'
 import { expandHome, nowIso } from '../paths'
@@ -19,6 +20,7 @@ type WorkspaceRow = {
   base: string
   worktree_path: string
   stage: string
+  lifecycle: Lifecycle | null
   setup_status: Workspace['setupStatus']
   created_at: string
   archived_at: string | null
@@ -40,7 +42,18 @@ function lastAgent(db: Db, workspaceId: string): Workspace['agent'] {
   return row ? { agent: row.agent, model: row.model, configDir: row.config_dir, accountLabel: row.label } : null
 }
 
-const toWorkspace = (r: WorkspaceRow, status: StatusLookup, agent: Workspace['agent'] = null): Workspace => ({
+const COLUMN_LIFECYCLE: Record<BoardColumn, Lifecycle> = { backlog: 'planning', in_progress: 'in_progress', review: 'in_review', done: 'done' }
+
+/** Chosen by hand wins; otherwise the board column of the ticket worked on last, if any. */
+function lifecycleOf(db: Db, r: WorkspaceRow): Pick<Workspace, 'lifecycle' | 'lifecycleSource'> {
+  if (r.lifecycle) return { lifecycle: r.lifecycle, lifecycleSource: 'manual' }
+  const task = db.prepare('SELECT board_column FROM tasks WHERE workspace_id = ? ORDER BY updated_at DESC LIMIT 1').get(r.id) as
+    | { board_column: BoardColumn }
+    | undefined
+  return task ? { lifecycle: COLUMN_LIFECYCLE[task.board_column], lifecycleSource: 'task' } : { lifecycle: null, lifecycleSource: null }
+}
+
+const toWorkspace = (db: Db, r: WorkspaceRow, status: StatusLookup, agent: Workspace['agent'] = null): Workspace => ({
   id: r.id,
   repoId: r.repo_id,
   name: r.name,
@@ -52,6 +65,7 @@ const toWorkspace = (r: WorkspaceRow, status: StatusLookup, agent: Workspace['ag
   stage: r.stage,
   setupStatus: r.setup_status,
   status: status(r.id),
+  ...lifecycleOf(db, r),
   agent,
   createdAt: r.created_at,
   archivedAt: r.archived_at,
@@ -61,13 +75,13 @@ const idle: StatusLookup = () => 'idle'
 
 export function listWorkspaces(db: Db, status: StatusLookup = idle): Workspace[] {
   const rows = db.prepare('SELECT * FROM workspaces WHERE archived_at IS NULL ORDER BY created_at').all() as WorkspaceRow[]
-  return rows.map((r) => toWorkspace(r, status, lastAgent(db, r.id)))
+  return rows.map((r) => toWorkspace(db, r, status, lastAgent(db, r.id)))
 }
 
 export function getWorkspace(db: Db, id: string, status: StatusLookup = idle): Workspace {
   const row = db.prepare('SELECT * FROM workspaces WHERE id = ?').get(id) as WorkspaceRow | undefined
   if (!row) throw new UserError('workspace_not_found', 'Workspace not found', 404)
-  return toWorkspace(row, status, lastAgent(db, id))
+  return toWorkspace(db, row, status, lastAgent(db, id))
 }
 
 export function setSetupStatus(db: Db, id: string, status: Workspace['setupStatus']): void {
@@ -161,5 +175,15 @@ export function updateWorkspace(db: Db, id: string, input: unknown, status: Stat
   const workflow = parsed.data.workflowId ? getWorkflow(db, parsed.data.workflowId) : null
   const values = workflow ? resolveValues(workflow, parsed.data.values, { requireAll: false }) : {}
   db.prepare('UPDATE workspaces SET workflow_id = ?, values_json = ? WHERE id = ?').run(workflow?.id ?? null, JSON.stringify(values), id)
+  return getWorkspace(db, id, status)
+}
+
+/** Say where the work stands, or `null` to follow the assigned ticket again. */
+export function setLifecycle(db: Db, id: string, input: unknown, status: StatusLookup = idle): Workspace {
+  const ws = getWorkspace(db, id)
+  if (ws.archivedAt) throw new UserError('workspace_archived', 'This workspace is archived', 409)
+  const parsed = LifecycleInput.safeParse(input)
+  if (!parsed.success) throw new UserError('invalid_lifecycle', 'Pick planning, in progress, in review, done or dropped')
+  db.prepare('UPDATE workspaces SET lifecycle = ? WHERE id = ?').run(parsed.data.lifecycle, id)
   return getWorkspace(db, id, status)
 }

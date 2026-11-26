@@ -14,6 +14,7 @@ import {
   Settings,
   Workflow,
   type WorkflowInput,
+  type Lifecycle,
   Workspace,
   type WorkspaceInput,
   type WorkspaceUpdate,
@@ -102,6 +103,8 @@ export const api = {
   getWorkspace: (id: string) => request('GET', `${API.workspaces}/${id}`, Workspace),
   createWorkspace: (input: WorkspaceInput) => request('POST', API.workspaces, Workspace, input),
   updateWorkspace: (id: string, input: WorkspaceUpdate) => request('PATCH', `${API.workspaces}/${id}`, Workspace, input),
+  setWorkspaceLifecycle: (id: string, lifecycle: Lifecycle | null) =>
+    request('PUT', `${API.workspaces}/${id}/lifecycle`, Workspace, { lifecycle }),
   archiveWorkspace: (id: string, options: { deleteBranch: boolean; force: boolean }) =>
     request('POST', `${API.workspaces}/${id}/archive`, Ok, options),
   setupLog: (id: string) => request('GET', `${API.workspaces}/${id}/setup-log`, z.object({ log: z.string() })),

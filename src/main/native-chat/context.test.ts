@@ -17,6 +17,8 @@ const ws: Workspace = {
   stage: 'intake',
   setupStatus: 'done',
   status: 'idle',
+  lifecycle: null,
+  lifecycleSource: null,
   agent: null,
   createdAt: 't',
   archivedAt: null,

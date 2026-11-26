@@ -1,13 +1,15 @@
 import { ClipboardList, Folder, FolderOpen, Loader2, MessageSquare, Plus, Settings2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import type { Repo, Workspace } from '../../../shared/schemas'
+import { type Repo, type Workspace, isFinished } from '../../../shared/schemas'
 import { accountName } from '../../lib/accounts'
 import { cn } from '../../lib/cn'
+import { readPref, writePref } from '../../lib/local-pref'
 import { modelInfo } from '../../lib/models'
 import { useAppEvents } from '../../store/events'
 import { useRouter } from '../../store/router'
 import { useModal } from '../../store/ui'
 import { useWorkspaces } from '../../store/workspaces'
+import { LifecycleBadge } from './LifecycleBadge'
 import { StatusDot } from './StatusDot'
 
 function WorkspaceRow({ ws, active, onClick }: { ws: Workspace; active: boolean; onClick: () => void }) {
@@ -19,6 +21,7 @@ function WorkspaceRow({ ws, active, onClick }: { ws: Workspace; active: boolean;
       className={cn(
         'group flex w-full items-center gap-2 rounded-md py-1.5 pr-2 pl-6 text-left transition-colors',
         active ? 'bg-secondary text-foreground' : 'text-foreground/70 hover:bg-foreground/5 hover:text-foreground',
+        isFinished(ws.lifecycle) && !active && 'opacity-60',
       )}
     >
       {ws.workflowId ? (
@@ -42,6 +45,7 @@ function WorkspaceRow({ ws, active, onClick }: { ws: Workspace; active: boolean;
           )}
         </span>
       </span>
+      {ws.lifecycle && <LifecycleBadge lifecycle={ws.lifecycle} />}
       {ws.status === 'working' ? (
         <Loader2 aria-label="Working" className="size-3.5 shrink-0 animate-spin text-info" />
       ) : (
@@ -51,11 +55,14 @@ function WorkspaceRow({ ws, active, onClick }: { ws: Workspace; active: boolean;
   )
 }
 
-function ProjectGroup({ repo, workspaces }: { repo: Repo; workspaces: Workspace[] }) {
+function ProjectGroup({ repo, workspaces, hideFinished }: { repo: Repo; workspaces: Workspace[]; hideFinished: boolean }) {
   const { route, navigate } = useRouter()
   const open = useModal((s) => s.open)
   const [collapsed, setCollapsed] = useState(false)
   const active = route.name === 'project' && route.id === repo.id
+  // The workspace you are looking at stays in the list, even when finished.
+  const shown = hideFinished ? workspaces.filter((w) => !isFinished(w.lifecycle) || (route.name === 'workspace' && route.id === w.id)) : workspaces
+  const hidden = workspaces.length - shown.length
   return (
     <div>
       <div className={cn('group flex h-7 items-center gap-1 rounded-md pr-1 pl-1', active && 'bg-secondary')}>
@@ -97,7 +104,8 @@ function ProjectGroup({ repo, workspaces }: { repo: Repo; workspaces: Workspace[
       {!collapsed && (
         <div className="mt-0.5 space-y-0.5">
           {workspaces.length === 0 && <div className="py-1 pl-7 text-xs text-muted-foreground/50">No workspaces</div>}
-          {workspaces.map((w) => (
+          {hidden > 0 && <div className="py-0.5 pl-7 text-xs text-muted-foreground/50">{hidden} finished hidden</div>}
+          {shown.map((w) => (
             <WorkspaceRow key={w.id} ws={w} active={route.name === 'workspace' && route.id === w.id} onClick={() => navigate({ name: 'workspace', id: w.id })} />
           ))}
         </div>
@@ -110,6 +118,7 @@ function ProjectGroup({ repo, workspaces }: { repo: Repo; workspaces: Workspace[
 export function WorkspaceList() {
   const { workspaces, repos, load, patch } = useWorkspaces()
   const open = useModal((s) => s.open)
+  const [hideFinished, setHideFinished] = useState(() => readPref('hide-finished', false))
   useEffect(() => {
     void load()
   }, [load])
@@ -133,10 +142,21 @@ export function WorkspaceList() {
       </button>
     )
   }
+  const finished = workspaces.filter((w) => isFinished(w.lifecycle)).length
   return (
     <div className="space-y-2">
+      {finished > 0 && (
+        <button
+          type="button"
+          data-testid="toggle-finished"
+          onClick={() => (setHideFinished(!hideFinished), writePref('hide-finished', !hideFinished))}
+          className="px-1 text-xs text-muted-foreground/70 hover:text-foreground"
+        >
+          {hideFinished ? `Show ${finished} finished` : `Hide ${finished} finished`}
+        </button>
+      )}
       {repos.map((repo) => (
-        <ProjectGroup key={repo.id} repo={repo} workspaces={workspaces.filter((w) => w.repoId === repo.id)} />
+        <ProjectGroup key={repo.id} repo={repo} hideFinished={hideFinished} workspaces={workspaces.filter((w) => w.repoId === repo.id)} />
       ))}
     </div>
   )
