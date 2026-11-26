@@ -670,6 +670,63 @@ test('Transfer a Helix defect and a story to the board; the defect gets the Defe
   await expect(page.getByText('No connectors yet')).toBeVisible()
 })
 
+test('Update a Helix ticket from its card: review the exact request, then send (write token)', async ({ page }) => {
+  const read = `sidpjm_${'e'.repeat(64)}`
+  const write = `sidpjm_${'f'.repeat(64)}`
+  await page.goto(`/?token=${TOKEN}`)
+  await page.locator('aside').getByRole('button', { name: 'Settings', exact: true }).click()
+  await page.getByRole('navigation', { name: 'Settings sections' }).getByRole('button', { name: 'Connectors', exact: true }).click()
+  await page.getByRole('combobox', { name: 'Add connector' }).click()
+  await page.getByRole('option', { name: 'Helix' }).click()
+  await page.getByRole('button', { name: 'Configure' }).click()
+  await page.getByLabel('Helix address').fill('https://helix.example.test')
+  await page.getByLabel('Read-only token').fill(read)
+  await page.getByLabel('Paste a write token').check()
+  await page.getByLabel('Write token', { exact: true }).fill(write)
+  await page.getByRole('button', { name: 'Add connection' }).click()
+  await expect(page.getByTestId('write-state')).toContainText('sidpjm_…ffff')
+
+  // The ticket card (transferred earlier) now offers "Update Helix".
+  await page.locator('aside').getByRole('button', { name: 'Back to Nakoda' }).click()
+  await page.locator('aside').getByRole('link', { name: 'Tasks', exact: true }).click()
+  await page.getByRole('tab', { name: 'Our board' }).click()
+  const card = page.getByTestId('task-card').filter({ hasText: '[FE] Link redirect after login' })
+  await card.getByTestId('helix-change').click()
+  const dialog = page.getByRole('dialog', { name: 'Update T2-3672 in Helix' })
+  // Only the moves Helix allows from here.
+  await pick(page, dialog.getByLabel('Move to'), 'In testing')
+  await dialog.getByLabel('Note').fill('Fixed in the branch, please retest')
+  await dialog.getByRole('button', { name: 'Review' }).click()
+  // Nothing has been sent yet: the exact request is shown first.
+  const preview = dialog.getByTestId('helix-preview')
+  await expect(preview).toContainText('PATCH /api/tickets/T2-3672/status')
+  await expect(preview).toContainText('"status": "in_testing"')
+  await expect(preview).toContainText('Fixed in the branch, please retest')
+  await page.screenshot({ path: shot('helix-change-preview'), animations: 'disabled' })
+  await dialog.getByTestId('helix-send').click()
+  await expect(dialog).toContainText('Done. T2-3672 updated in Helix.')
+  await dialog.getByText('Close', { exact: true }).click()
+  // The click inside the dialog never opened the ticket behind it.
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+
+  // A comment goes the same way.
+  await card.getByTestId('helix-change').click()
+  await page.getByRole('tab', { name: 'Comment' }).click()
+  await page.getByLabel('Comment', { exact: true }).fill('Checked on staging.')
+  await page.getByRole('button', { name: 'Review' }).click()
+  await expect(page.getByTestId('helix-preview')).toContainText('POST /api/tickets/T2-3672/comments')
+  await page.getByTestId('helix-send').click()
+  await expect(page.getByRole('dialog')).toContainText('Done.')
+  await page.getByRole('dialog').getByText('Close', { exact: true }).click()
+
+  // Clean up.
+  await page.locator('aside').getByRole('button', { name: 'Settings', exact: true }).click()
+  await page.getByRole('navigation', { name: 'Settings sections' }).getByRole('button', { name: 'Connectors', exact: true }).click()
+  await page.getByRole('button', { name: 'Remove' }).click()
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Remove' }).click()
+  await expect(page.getByText('No connectors yet')).toBeVisible()
+})
+
 test('Tasks and Docs open in a new tab, already signed in', async ({ page, context }) => {
   await page.goto(`/?token=${TOKEN}`)
   const aside = page.locator('aside')

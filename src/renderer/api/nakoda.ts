@@ -22,6 +22,7 @@ import {
 import { ChatEvent } from '../../shared/events'
 import { type BoardColumn, Task, type TaskInput, type TaskUpdate } from '../../shared/tasks'
 import {
+  AllowedTransitions,
   Connector,
   type ConnectorInput,
   ExternalPage,
@@ -150,6 +151,10 @@ export const api = {
     return request('GET', `/api/connectors/${id}/my-subtasks?${params}`, z.array(ExternalTicket))
   },
   transferTicket: (id: string, key: string) => request('POST', `/api/connectors/${id}/transfer`, Task, { key }),
+  /** The few fields of a Helix ticket the change dialog needs. */
+  connectorTicket: (id: string, key: string) =>
+    request('GET', `/api/connectors/${id}/tickets/${encodeURIComponent(key)}`, z.object({ key: z.string(), title: z.string(), type: z.string(), status: z.string(), board: z.string().nullable(), url: z.string() })),
+  helixTransitions: (id: string, boardId: number) => request('GET', `/api/connectors/${id}/boards/${boardId}/transitions`, AllowedTransitions),
   connectorBoards: (id: string) => request('GET', `/api/connectors/${id}/boards`, z.array(z.object({ id: z.number(), name: z.string() }))),
   connectorIterations: (id: string, boardId: number) => request('GET', `/api/connectors/${id}/iterations?boardId=${boardId}`, z.array(Iteration)),
   externalTickets: (id: string, q: ExternalQuery, refresh = false) => {

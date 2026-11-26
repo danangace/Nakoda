@@ -84,10 +84,39 @@ const modelListers = {
   ].map((m) => ({ ...m, efforts: [...m.efforts] })),
 }
 // A fake Helix (sanitized answers), so the Connectors and External screens run without the network.
-const fakeHelix = (async (url: string | URL | Request) => {
+const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status })
+const E2E_WRITE_TOKEN = `sidpjm_${'f'.repeat(64)}`
+const fakeHelix = (async (url: string | URL | Request, init?: RequestInit) => {
   const path = new URL(String(url)).pathname
-  const body = path === '/api/auth/me' ? ME : path === '/api/boards/' ? BOARDS : path.endsWith('/milestones') ? MILESTONES : path === '/api/search' ? SEARCH : path === '/api/tickets/T2-3672' ? DEFECT : path === '/api/tickets/T2-3252' ? STORY : path === '/api/tickets/T2-3274' ? SUBTASK : null
-  return new Response(JSON.stringify(body ?? { error: 'not_found' }), { status: body ? 200 : 404 })
+  const method = init?.method ?? 'GET'
+  if (method !== 'GET') {
+    // Changes need the write token; the read token is refused, like the real Helix would.
+    const auth = ((init?.headers ?? {}) as Record<string, string>).Authorization
+    if (auth !== `Bearer ${E2E_WRITE_TOKEN}`) return json({ code: 'insufficient_scope', error: 'This token cannot do that', details: { required_capability: 'write' } }, 403)
+    const sent = JSON.parse(String(init?.body ?? '{}')) as { status?: string }
+    if (method === 'PATCH' && path === '/api/tickets/T2-3672/status') return json({ data: { status: sent.status } })
+    if (method === 'POST' && path === '/api/tickets/T2-3672/comments') return json({ data: { id: 1 } }, 201)
+    return json({ error: 'not_found' }, 404)
+  }
+  const body =
+    path === '/api/auth/me'
+      ? ME
+      : path === '/api/boards/'
+        ? BOARDS
+        : path === '/api/boards/4/allowed-transitions'
+          ? { data: { transitions: { defect_staging: { ready_to_test: ['in_testing', 'in_progress'] } } } }
+          : path.endsWith('/milestones')
+            ? MILESTONES
+            : path === '/api/search'
+              ? SEARCH
+              : path === '/api/tickets/T2-3672'
+                ? DEFECT
+                : path === '/api/tickets/T2-3252'
+                  ? STORY
+                  : path === '/api/tickets/T2-3274'
+                    ? SUBTASK
+                    : null
+  return json(body ?? { error: 'not_found' }, body ? 200 : 404)
 }) as typeof fetch
 const { app } = createRuntimeApp({
   security: { token: E2E_TOKEN, allowedHosts: localHosts(E2E_PORT) },
