@@ -10,7 +10,7 @@ import { Select } from '../ui/Select'
 import { useConfirm } from '../ui/confirm'
 import { formatMap, parseMap } from '../../lib/mapping-text'
 
-const DEFAULT_URL = 'https://project.sid.id'
+const DEFAULT_URL = 'https://project.sesi.id'
 
 type Source = 'paste' | 'env'
 type Draft = { id: string | null; label: string; baseUrl: string; source: Source; token: string; envName: string; severityMap: string; envMap: string }

@@ -23,9 +23,9 @@ const client = (routes: Record<string, () => Response>, extra: Partial<Construct
 }
 
 describe('normalizeBaseUrl', () => {
-  it('keeps the origin only', () => expect(normalizeBaseUrl('https://project.sid.id/some/path/')).toBe('https://project.sid.id'))
+  it('keeps the origin only', () => expect(normalizeBaseUrl('https://project.sesi.id/some/path/')).toBe('https://project.sesi.id'))
   it('rejects plain http except for localhost', () => {
-    expect(() => normalizeBaseUrl('http://project.sid.id')).toThrow(/https/)
+    expect(() => normalizeBaseUrl('http://project.sesi.id')).toThrow(/https/)
     expect(normalizeBaseUrl('http://localhost:8080')).toBe('http://localhost:8080')
   })
   it('rejects text that is not an address', () => expect(() => normalizeBaseUrl('helix')).toThrow(/web address/))

@@ -28,7 +28,7 @@ export function normalizeBaseUrl(input: string): string {
   try {
     url = new URL(input.trim())
   } catch {
-    throw new UserError('invalid_base_url', 'That is not a web address. Use something like https://project.sid.id')
+    throw new UserError('invalid_base_url', 'That is not a web address. Use something like https://project.sesi.id')
   }
   if (url.protocol !== 'https:' && !(url.protocol === 'http:' && isLocalHost(url.hostname))) {
     throw new UserError('invalid_base_url', 'Helix must be reached over https')
