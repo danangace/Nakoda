@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import type { Connector, TestResult } from '../../../shared/connectors'
 import { api } from '../../api/nakoda'
 import { errorText } from '../../lib/errors'
+import { useHelixWriter } from '../../store/helix-writer'
 import { toast } from '../../store/toast'
 import { Button } from '../ui/Button'
 import { Field, Input, Notice, TextArea } from '../ui/Field'
@@ -212,7 +213,11 @@ export function ConnectorSettings() {
   const [testing, setTesting] = useState<string | null>(null)
   const [results, setResults] = useState<Record<string, TestResult | string>>({})
 
-  const load = () => api.listConnectors().then(setConnectors, (e: unknown) => setError(errorText(e)))
+  const load = () => {
+    // The Update / Break down buttons elsewhere follow what is saved here: do not make them wait for their cache.
+    void useHelixWriter.getState().load(true)
+    return api.listConnectors().then(setConnectors, (e: unknown) => setError(errorText(e)))
+  }
   useEffect(() => {
     void load()
     api.connectorEnvVars().then(setEnvNames, () => setEnvNames([]))
