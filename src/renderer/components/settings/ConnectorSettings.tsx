@@ -5,7 +5,9 @@ import { errorText } from '../../lib/errors'
 import { useHelixWriter } from '../../store/helix-writer'
 import { toast } from '../../store/toast'
 import { Button } from '@/components/ui/button'
-import { Field, Input, Notice, TextArea } from '../ui/Field'
+import { Field, Notice } from '../ui/Field'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Modal } from '../ui/Modal'
 import { Select } from '../ui/Select'
 import { useConfirm } from '../ui/confirm'
@@ -119,10 +121,10 @@ function ConnectorForm({ draft, envNames, writeEnvNames, onChange, onSave, onCan
       {editing && (
         <div className="grid grid-cols-2 gap-3">
           <Field label="Severity mapping" hint="Helix severity=ours (critical, major or minor), one per line. Used when a defect is transferred.">
-            <TextArea aria-label="Severity mapping" rows={4} className="font-mono text-xs" value={draft.severityMap} onChange={(e) => onChange({ ...draft, severityMap: e.target.value })} />
+            <Textarea aria-label="Severity mapping" rows={4} className="field-sizing-fixed resize-y font-mono text-xs md:text-xs" value={draft.severityMap} onChange={(e) => onChange({ ...draft, severityMap: e.target.value })} />
           </Field>
           <Field label="Environment mapping" hint="Helix ticket type=environment (dev, staging or production). Empty means someone chooses it.">
-            <TextArea aria-label="Environment mapping" rows={4} className="font-mono text-xs" value={draft.envMap} onChange={(e) => onChange({ ...draft, envMap: e.target.value })} />
+            <Textarea aria-label="Environment mapping" rows={4} className="field-sizing-fixed resize-y font-mono text-xs md:text-xs" value={draft.envMap} onChange={(e) => onChange({ ...draft, envMap: e.target.value })} />
           </Field>
         </div>
       )}

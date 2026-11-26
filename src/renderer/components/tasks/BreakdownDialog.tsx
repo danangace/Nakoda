@@ -10,7 +10,9 @@ import { toast } from '../../store/toast'
 import { Markdown } from '../docs-browser/Markdown'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '../ui/Checkbox'
-import { Field, Input, Notice, TextArea } from '../ui/Field'
+import { Field, Notice } from '../ui/Field'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Modal } from '../ui/Modal'
 import { useConfirm } from '../ui/confirm'
 
@@ -309,7 +311,7 @@ export function BreakdownDialog({ connector, ticketKey, onClose, onDone }: { con
                 {drafted && <Notice tone="info">{drafted}</Notice>}
                 {truncated && <Notice tone="error">The spec is very long and was cut before Claude read it. Check that nothing important was left out.</Notice>}
                 <Field label="Subtasks" hint={FORMAT_HINT}>
-                  <TextArea aria-label="Subtasks" rows={wide ? 14 : 8} placeholder={EXAMPLE} className="font-mono text-xs" value={text} onChange={(e) => setText(e.target.value)} />
+                  <Textarea aria-label="Subtasks" rows={wide ? 14 : 8} placeholder={EXAMPLE} className="field-sizing-fixed resize-y font-mono text-xs md:text-xs" value={text} onChange={(e) => setText(e.target.value)} />
                 </Field>
               </div>
             </div>

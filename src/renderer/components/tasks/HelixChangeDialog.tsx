@@ -4,7 +4,8 @@ import { api } from '../../api/nakoda'
 import { errorText } from '../../lib/errors'
 import { toast } from '../../store/toast'
 import { Button } from '@/components/ui/button'
-import { Field, Notice, TextArea } from '../ui/Field'
+import { Field, Notice } from '../ui/Field'
+import { Textarea } from '@/components/ui/textarea'
 import { Modal } from '../ui/Modal'
 import { Select } from '../ui/Select'
 
@@ -109,7 +110,7 @@ export function HelixChangeDialog({ connector, ticketKey, onClose, onDone }: { c
               </Field>
             )}
             <Field label={mode === 'status' ? 'Note (optional)' : 'Comment'} hint={mode === 'status' ? 'Saved with the move, as your comment on the ticket.' : 'Comments cannot be edited or deleted afterwards.'}>
-              <TextArea aria-label={mode === 'status' ? 'Note' : 'Comment'} rows={4} value={text} onChange={(e) => setText(e.target.value)} />
+              <Textarea aria-label={mode === 'status' ? 'Note' : 'Comment'} rows={4} className="field-sizing-fixed resize-y" value={text} onChange={(e) => setText(e.target.value)} />
             </Field>
             <div className="flex gap-2">
               <Button variant="default" disabled={!ready || busy} onClick={() => void showPreview()}>

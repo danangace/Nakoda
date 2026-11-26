@@ -11,7 +11,9 @@ import { useRouter } from '../../store/router'
 import { useWorkspaces } from '../../store/workspaces'
 import { Button } from '@/components/ui/button'
 import { Collapsible } from '../ui/Collapsible'
-import { Field, Input, Notice, TextArea } from '../ui/Field'
+import { Field, Notice } from '../ui/Field'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Modal } from '../ui/Modal'
 import { Select } from '../ui/Select'
 
@@ -49,7 +51,7 @@ export function WorkflowFieldInput({
   if (field.type === 'longtext' || field.type === 'links') {
     return (
       <Field label={label} hint={field.help}>
-        <TextArea aria-label={field.label} rows={field.type === 'links' ? 3 : 4} value={value} placeholder={field.type === 'links' ? 'https://…' : ''} onChange={(e) => onChange(e.target.value)} />
+        <Textarea aria-label={field.label} rows={field.type === 'links' ? 3 : 4} className="field-sizing-fixed resize-y" value={value} placeholder={field.type === 'links' ? 'https://…' : ''} onChange={(e) => onChange(e.target.value)} />
       </Field>
     )
   }

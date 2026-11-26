@@ -6,7 +6,8 @@ import { api } from '../../api/nakoda'
 import { errorText } from '../../lib/errors'
 import { Button } from '@/components/ui/button'
 import { toast } from '../../store/toast'
-import { Card, Field, Input, Notice } from '../ui/Field'
+import { Card, Field, Notice } from '../ui/Field'
+import { Input } from '@/components/ui/input'
 import { Select } from '../ui/Select'
 
 /** Your own named doc locations; each chat gets them filled in for its workspace. */

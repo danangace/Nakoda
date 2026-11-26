@@ -3,7 +3,8 @@ import { useEffect, useState } from 'react'
 import { type LoginView, api } from '../../api/nakoda'
 import { errorText } from '../../lib/errors'
 import { Button } from '@/components/ui/button'
-import { Field, Input, Notice } from '../ui/Field'
+import { Field, Notice } from '../ui/Field'
+import { Input } from '@/components/ui/input'
 
 const ACTIVE = new Set(['starting', 'waiting_for_user'])
 

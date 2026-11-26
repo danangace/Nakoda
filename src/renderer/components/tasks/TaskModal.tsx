@@ -7,7 +7,9 @@ import { errorText } from '../../lib/errors'
 import { defaultWorkflowId } from '../../lib/tasks-board'
 import { useWorkspaces } from '../../store/workspaces'
 import { Button } from '@/components/ui/button'
-import { Field, Input, Notice, TextArea } from '../ui/Field'
+import { Field, Notice } from '../ui/Field'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Modal } from '../ui/Modal'
 import { Select } from '../ui/Select'
 import { useConfirm } from '../ui/confirm'
@@ -81,7 +83,7 @@ export function TaskModal({ task, workflows, onClose, onChanged, onAssign }: {
           <Input aria-label="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
         </Field>
         <Field label="Description" hint="What to do and how we know it is done.">
-          <TextArea aria-label="Description" value={description} onChange={(e) => setDescription(e.target.value)} />
+          <Textarea aria-label="Description" rows={5} className="field-sizing-fixed resize-y" value={description} onChange={(e) => setDescription(e.target.value)} />
         </Field>
         <div className="grid grid-cols-3 gap-3">
           <Field label="Kind">
