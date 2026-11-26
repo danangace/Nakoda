@@ -1,5 +1,8 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
+
+/* shadcn components switch on a `dark` class (`dark:` variants); the app is dark only, so <html class="dark"> is always set. */
+@custom-variant dark (&:is(.dark *));
 @import '@fontsource-variable/inter';
 
 /* App font: Inter (bundled, works offline; same as Orca). Code keeps Tailwind's mono stack.
@@ -34,6 +37,23 @@
   --color-secondary-foreground: #f0f0f0;
 
   --radius-lg: 0.625rem;
+}
+
+:root {
+  --background: var(--color-background);
+  --foreground: var(--color-foreground);
+  --card: var(--color-card);
+  --popover: var(--color-popover);
+  --primary: var(--color-primary);
+  --secondary: var(--color-secondary);
+  --muted: var(--color-muted);
+  --accent: var(--color-accent);
+  --destructive: var(--color-destructive);
+  --border: var(--color-border);
+  --input: var(--color-input);
+  --ring: var(--color-ring);
+  --radius-md: calc(var(--radius-lg) - 2px);
+  --radius-xl: calc(var(--radius-lg) + 4px);
 }
 
 /* One step larger overall (rem-based sizes and spacing scale together). */

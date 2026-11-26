@@ -6,7 +6,7 @@ import { api } from '../../api/nakoda'
 import { errorText } from '../../lib/errors'
 import { defaultWorkflowId } from '../../lib/tasks-board'
 import { useWorkspaces } from '../../store/workspaces'
-import { Button } from '../ui/Button'
+import { Button } from '@/components/ui/button'
 import { Field, Input, Notice, TextArea } from '../ui/Field'
 import { Modal } from '../ui/Modal'
 import { Select } from '../ui/Select'
@@ -130,12 +130,12 @@ export function TaskModal({ task, workflows, onClose, onChanged, onAssign }: {
               </Button>
             )}
             {task && !assigned && onAssign && (
-              <Button disabled={busy} onClick={() => onAssign(task)}>
+              <Button variant="secondary" disabled={busy} onClick={() => onAssign(task)}>
                 Assign to a workspace…
               </Button>
             )}
           </div>
-          <Button variant="primary" disabled={busy || !title.trim()} onClick={() => void save()}>
+          <Button variant="default" disabled={busy || !title.trim()} onClick={() => void save()}>
             {task ? 'Save ticket' : 'Create ticket'}
           </Button>
         </div>

@@ -2,7 +2,7 @@ import { Copy, ExternalLink } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { type LoginView, api } from '../../api/nakoda'
 import { errorText } from '../../lib/errors'
-import { Button } from '../ui/Button'
+import { Button } from '@/components/ui/button'
 import { Field, Input, Notice } from '../ui/Field'
 
 const ACTIVE = new Set(['starting', 'waiting_for_user'])
@@ -50,7 +50,7 @@ export function ClaudeSignIn({ onDone }: { onDone: () => void }) {
           <Field label="Label">
             <Input value={label} placeholder="e.g. Personal" onChange={(e) => setLabel(e.target.value)} />
           </Field>
-          <Button variant="primary" disabled={!label.trim()} onClick={start}>
+          <Button variant="default" disabled={!label.trim()} onClick={start}>
             Sign in
           </Button>
         </div>
@@ -64,7 +64,7 @@ export function ClaudeSignIn({ onDone }: { onDone: () => void }) {
           </Notice>
           {login.link && (
             <div className="flex gap-2">
-              <Button onClick={() => window.open(login.link ?? '', '_blank', 'noopener')}>
+              <Button variant="secondary" onClick={() => window.open(login.link ?? '', '_blank', 'noopener')}>
                 <ExternalLink size={14} /> Open sign-in page
               </Button>
               <Button variant="ghost" onClick={() => void navigator.clipboard.writeText(login.link ?? '')}>
@@ -76,7 +76,7 @@ export function ClaudeSignIn({ onDone }: { onDone: () => void }) {
             <Field label="Code from the sign-in page">
               <Input value={code} onChange={(e) => setCode(e.target.value)} />
             </Field>
-            <Button disabled={!code.trim()} onClick={sendCode}>
+            <Button variant="secondary" disabled={!code.trim()} onClick={sendCode}>
               Send code
             </Button>
           </div>
@@ -88,13 +88,13 @@ export function ClaudeSignIn({ onDone }: { onDone: () => void }) {
       {login?.state === 'done' && (
         <div className="space-y-2">
           <Notice tone="ok">Signed in{login.account?.email ? ` as ${login.account.email}` : ''}.</Notice>
-          <Button onClick={reset}>Sign in another account</Button>
+          <Button variant="secondary" onClick={reset}>Sign in another account</Button>
         </div>
       )}
       {(login?.state === 'failed' || login?.state === 'cancelled') && (
         <div className="space-y-2">
           <Notice tone="error">{login.error ?? 'Sign-in cancelled.'}</Notice>
-          <Button onClick={reset}>Try again</Button>
+          <Button variant="secondary" onClick={reset}>Try again</Button>
         </div>
       )}
     </div>

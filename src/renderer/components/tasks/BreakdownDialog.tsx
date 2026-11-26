@@ -8,7 +8,7 @@ import { errorText } from '../../lib/errors'
 import { wikiToMarkdown } from '../../lib/wiki'
 import { toast } from '../../store/toast'
 import { Markdown } from '../docs-browser/Markdown'
-import { Button } from '../ui/Button'
+import { Button } from '@/components/ui/button'
 import { Checkbox } from '../ui/Checkbox'
 import { Field, Input, Notice, TextArea } from '../ui/Field'
 import { Modal } from '../ui/Modal'
@@ -300,7 +300,7 @@ export function BreakdownDialog({ connector, ticketKey, onClose, onDone }: { con
                 {source === 'spec' && (
                   <div className="space-y-1.5 rounded-md border border-border p-2.5">
                     <Input aria-label="Instruction for Claude" placeholder="Optional: e.g. the API already exists, no [BE] work" value={instruction} onChange={(e) => setInstruction(e.target.value)} />
-                    <Button data-testid="draft-with-claude" disabled={!doc || drafting} onClick={() => void draftWithClaude()}>
+                    <Button variant="secondary" data-testid="draft-with-claude" disabled={!doc || drafting} onClick={() => void draftWithClaude()}>
                       {drafting ? 'Drafting… (about a minute)' : 'Draft with Claude'}
                     </Button>
                     {!doc && <p className="text-xs text-muted-foreground">Pick the spec first. Claude reads it with the ticket and the subtasks that already exist; nothing is sent to Helix.</p>}
@@ -314,7 +314,7 @@ export function BreakdownDialog({ connector, ticketKey, onClose, onDone }: { con
               </div>
             </div>
             <div className="flex gap-2">
-              <Button variant="primary" disabled={!text.trim()} onClick={toRows}>
+              <Button variant="default" disabled={!text.trim()} onClick={toRows}>
                 Continue
               </Button>
               <Button variant="ghost" onClick={onClose}>
@@ -359,7 +359,7 @@ export function BreakdownDialog({ connector, ticketKey, onClose, onDone }: { con
               </Field>
             </div>
             <div className="flex gap-2">
-              <Button variant="primary" disabled={rows.length === 0 || hasError || busy} onClick={() => void review()}>
+              <Button variant="default" disabled={rows.length === 0 || hasError || busy} onClick={() => void review()}>
                 Review {rows.length} subtask{rows.length === 1 ? '' : 's'}
               </Button>
               <Button variant="ghost" onClick={() => setStep('source')}>
@@ -388,7 +388,7 @@ export function BreakdownDialog({ connector, ticketKey, onClose, onDone }: { con
               </Notice>
             ))}
             <div className="flex gap-2">
-              <Button variant="primary" data-testid="breakdown-create" disabled={busy} onClick={() => void create()}>
+              <Button variant="default" data-testid="breakdown-create" disabled={busy} onClick={() => void create()}>
                 {busy ? 'Creating…' : `Create ${preview.requests.length} in Helix`}
               </Button>
               <Button variant="ghost" disabled={busy} onClick={() => setStep('rows')}>
@@ -417,8 +417,8 @@ export function BreakdownDialog({ connector, ticketKey, onClose, onDone }: { con
               </Notice>
             ))}
             <div className="flex gap-2">
-              {!outcome.ok && <Button onClick={backToEdit}>Fix the rest</Button>}
-              <Button variant="primary" onClick={onClose}>
+              {!outcome.ok && <Button variant="secondary" onClick={backToEdit}>Fix the rest</Button>}
+              <Button variant="default" onClick={onClose}>
                 Close
               </Button>
             </div>

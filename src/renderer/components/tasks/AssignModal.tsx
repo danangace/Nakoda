@@ -7,7 +7,7 @@ import { errorText } from '../../lib/errors'
 import { activeTaskIn } from '../../lib/tasks-board'
 import { useWorkspaces } from '../../store/workspaces'
 import { useModal } from '../../store/ui'
-import { Button } from '../ui/Button'
+import { Button } from '@/components/ui/button'
 import { Notice } from '../ui/Field'
 import { Modal } from '../ui/Modal'
 import { StatusDot } from '../workspace/StatusDot'
@@ -65,7 +65,7 @@ export function AssignModal({ task, tasks, workflows, onClose, onChanged }: {
                         <span className="block truncate text-sm">{w.name}</span>
                         {blocking && <span className="block truncate text-xs text-warning">Busy with "{blocking.title}". Move it to Review or Done first.</span>}
                       </span>
-                      <Button disabled={busy || Boolean(blocking)} onClick={() => void assign(w.id)}>
+                      <Button variant="secondary" disabled={busy || Boolean(blocking)} onClick={() => void assign(w.id)}>
                         Assign
                       </Button>
                     </li>
@@ -74,7 +74,7 @@ export function AssignModal({ task, tasks, workflows, onClose, onChanged }: {
               </ul>
             </div>
             <Button
-              variant="primary"
+              variant="default"
               disabled={busy}
               onClick={() => {
                 onClose()

@@ -9,7 +9,7 @@ import { docFolders } from '../../lib/docs-folders'
 import { errorText } from '../../lib/errors'
 import { useRouter } from '../../store/router'
 import { useWorkspaces } from '../../store/workspaces'
-import { Button } from '../ui/Button'
+import { Button } from '@/components/ui/button'
 import { Collapsible } from '../ui/Collapsible'
 import { Field, Input, Notice, TextArea } from '../ui/Field'
 import { Modal } from '../ui/Modal'
@@ -256,7 +256,7 @@ export function CreateWorkspaceModal({ projectId, taskId, onClose }: { projectId
             {needsTag && <p className="text-xs text-warning">Fill in: Release tag</p>}
             {missing.length > 0 && <p className="text-xs text-warning">Fill in: {missing.join(', ')}</p>}
             <div className="flex justify-end">
-              <Button variant="primary" disabled={!canCreate} onClick={() => void create()}>
+              <Button variant="default" disabled={!canCreate} onClick={() => void create()}>
                 {busy && <Loader2 size={14} className="animate-spin" />}
                 {busy ? 'Creating…' : 'Create workspace'} <span className="text-[11px] opacity-70">⌘↵</span>
               </Button>

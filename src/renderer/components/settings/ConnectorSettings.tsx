@@ -4,7 +4,7 @@ import { api } from '../../api/nakoda'
 import { errorText } from '../../lib/errors'
 import { useHelixWriter } from '../../store/helix-writer'
 import { toast } from '../../store/toast'
-import { Button } from '../ui/Button'
+import { Button } from '@/components/ui/button'
 import { Field, Input, Notice, TextArea } from '../ui/Field'
 import { Modal } from '../ui/Modal'
 import { Select } from '../ui/Select'
@@ -127,7 +127,7 @@ function ConnectorForm({ draft, envNames, writeEnvNames, onChange, onSave, onCan
         </div>
       )}
       <div className="flex gap-2">
-        <Button variant="primary" disabled={!ready} onClick={onSave}>
+        <Button variant="default" disabled={!ready} onClick={onSave}>
           {editing ? 'Save connection' : 'Add connection'}
         </Button>
         <Button variant="ghost" onClick={onCancel}>
@@ -325,7 +325,7 @@ export function ConnectorSettings() {
           state="unconfigured"
           actions={
             <>
-              <Button onClick={() => setDraft({ ...blank, pendingKey: key })}>Configure</Button>
+              <Button variant="secondary" onClick={() => setDraft({ ...blank, pendingKey: key })}>Configure</Button>
               <Button variant="ghost" onClick={() => setPending((p) => p.filter((k) => k !== key))}>
                 Remove
               </Button>
@@ -345,11 +345,11 @@ export function ConnectorSettings() {
             state={state}
             actions={
               <>
-                <Button disabled={testing === c.id} onClick={() => void test(c.id)}>
+                <Button variant="secondary" disabled={testing === c.id} onClick={() => void test(c.id)}>
                   {testing === c.id ? 'Testing…' : 'Test connection'}
                 </Button>
                 {c.writeTokenSource && (
-                  <Button disabled={testing === `${c.id}:write`} onClick={() => void testWrite(c.id)}>
+                  <Button variant="secondary" disabled={testing === `${c.id}:write`} onClick={() => void testWrite(c.id)}>
                     {testing === `${c.id}:write` ? 'Testing…' : 'Test write token'}
                   </Button>
                 )}

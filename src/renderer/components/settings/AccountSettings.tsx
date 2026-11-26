@@ -5,7 +5,7 @@ import { api } from '../../api/nakoda'
 import { configDirName } from '../../lib/accounts'
 import { cn } from '../../lib/cn'
 import { errorText } from '../../lib/errors'
-import { Button } from '../ui/Button'
+import { Button } from '@/components/ui/button'
 import { Card, Field, Input, Notice } from '../ui/Field'
 import { Select } from '../ui/Select'
 import { toast } from '../../store/toast'
@@ -161,7 +161,7 @@ export function AccountSettings() {
             {found.map((f) => (
               <li key={f.configDir} className="flex items-center justify-between rounded-md bg-card px-3 py-1.5 text-sm">
                 <span className="text-foreground/80">{f.configDir}</span>
-                <Button onClick={() => api.attachAccount(f.agent, f.configDir).then(load, onError)}>Attach</Button>
+                <Button variant="secondary" onClick={() => api.attachAccount(f.agent, f.configDir).then(load, onError)}>Attach</Button>
               </li>
             ))}
           </ul>

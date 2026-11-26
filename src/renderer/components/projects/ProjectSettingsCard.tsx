@@ -6,7 +6,7 @@ import { useWorkspaces } from '../../store/workspaces'
 import { cn } from '../../lib/cn'
 import { errorText } from '../../lib/errors'
 import { type RepoForm, formFromRepo, isDirty, setupState } from '../../lib/repo-form'
-import { Button } from '../ui/Button'
+import { Button } from '@/components/ui/button'
 import { Field, Input, Notice, ScriptArea } from '../ui/Field'
 import { toast } from '../../store/toast'
 import { useConfirm } from '../ui/confirm'
@@ -115,7 +115,7 @@ export function ProjectSettingsCard({ repo, onChange }: { repo: Repo; onChange: 
         <ScriptArea rows={2} value={form.archiveScript} onChange={(e) => setForm({ ...form, archiveScript: e.target.value })} />
       </Field>
       <div className="flex items-center gap-3">
-        <Button variant={dirty ? 'primary' : 'secondary'} disabled={!dirty || saving} onClick={save}>
+        <Button variant={dirty ? 'default' : 'secondary'} disabled={!dirty || saving} onClick={save}>
           {saving ? <Loader2 size={14} className="animate-spin" /> : null}
           {saving ? 'Saving…' : 'Save project'}
         </Button>

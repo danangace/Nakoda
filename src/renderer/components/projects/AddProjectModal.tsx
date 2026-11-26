@@ -4,7 +4,7 @@ import { type Inspection, api } from '../../api/nakoda'
 import { errorText } from '../../lib/errors'
 import { useRouter } from '../../store/router'
 import { useWorkspaces } from '../../store/workspaces'
-import { Button } from '../ui/Button'
+import { Button } from '@/components/ui/button'
 import { Field, Input, Notice } from '../ui/Field'
 import { Modal } from '../ui/Modal'
 import { FolderBrowser } from './FolderBrowser'
@@ -95,7 +95,7 @@ export function AddProjectModal({ onClose }: { onClose: () => void }) {
             <Input value={form.prefix} placeholder="feat/tribe-2/" onChange={(e) => setForm({ ...form, prefix: e.target.value })} />
           </Field>
           <Button
-            variant="primary"
+            variant="default"
             disabled={busy || !form.base.trim()}
             onClick={() =>
               void run(async () => {
@@ -119,7 +119,7 @@ export function AddProjectModal({ onClose }: { onClose: () => void }) {
           </Field>
           {!form.parent && <FolderBrowser pickLabel="Clone into this folder" onPick={(p) => setForm({ ...form, parent: p })} />}
           <Button
-            variant="primary"
+            variant="default"
             disabled={busy || !form.url.trim() || !form.parent}
             onClick={() =>
               void run(async () => {
@@ -143,7 +143,7 @@ export function AddProjectModal({ onClose }: { onClose: () => void }) {
           </Field>
           {!form.parent && <FolderBrowser pickLabel="Create it here" onPick={(p) => setForm({ ...form, parent: p })} />}
           <Button
-            variant="primary"
+            variant="default"
             disabled={busy || !form.name.trim() || !form.parent}
             onClick={() =>
               void run(async () => {

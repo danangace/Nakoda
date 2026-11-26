@@ -1,5 +1,5 @@
 import { FolderPlus, Plus } from 'lucide-react'
-import { Button } from '../components/ui/Button'
+import { Button } from '@/components/ui/button'
 import { useModal } from '../store/ui'
 
 export function HomePage() {
@@ -13,10 +13,10 @@ export function HomePage() {
           gets your PRD, Figma and other references every turn.
         </p>
         <div className="flex justify-center gap-2">
-          <Button variant="primary" onClick={() => open({ kind: 'create-workspace' })}>
+          <Button variant="default" onClick={() => open({ kind: 'create-workspace' })}>
             <Plus size={14} /> New workspace
           </Button>
-          <Button onClick={() => open({ kind: 'add-project' })}>
+          <Button variant="secondary" onClick={() => open({ kind: 'add-project' })}>
             <FolderPlus size={14} /> Add project
           </Button>
         </div>

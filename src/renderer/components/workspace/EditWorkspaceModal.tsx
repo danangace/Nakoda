@@ -6,7 +6,7 @@ import { docFolders } from '../../lib/docs-folders'
 import { errorText } from '../../lib/errors'
 import { toast } from '../../store/toast'
 import { useWorkspaces } from '../../store/workspaces'
-import { Button } from '../ui/Button'
+import { Button } from '@/components/ui/button'
 import { Field, Notice } from '../ui/Field'
 import { Modal } from '../ui/Modal'
 import { Select } from '../ui/Select'
@@ -106,7 +106,7 @@ export function EditWorkspaceModal({ workspace, onClose, onSaved }: { workspace:
           <Button variant="ghost" onClick={onClose}>
             Cancel
           </Button>
-          <Button variant="primary" disabled={busy} onClick={() => void save()}>
+          <Button variant="default" disabled={busy} onClick={() => void save()}>
             {busy && <Loader2 size={14} className="animate-spin" />}
             {busy ? 'Saving…' : 'Save'} <span className="text-[11px] opacity-70">⌘↵</span>
           </Button>

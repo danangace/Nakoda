@@ -9,7 +9,7 @@ import { errorText } from '../../lib/errors'
 import { groupByColumn } from '../../lib/tasks-board'
 import { useRouter } from '../../store/router'
 import { useWorkspaces } from '../../store/workspaces'
-import { Button } from '../ui/Button'
+import { Button } from '@/components/ui/button'
 import { Notice } from '../ui/Field'
 import { StatusDot } from '../workspace/StatusDot'
 import { AssignModal } from './AssignModal'
@@ -104,7 +104,7 @@ export function TaskBoard() {
   return (
     <div className="space-y-3">
       <div className="flex justify-end">
-        <Button variant="primary" onClick={() => setDialog({ kind: 'edit' })}>
+        <Button variant="default" onClick={() => setDialog({ kind: 'edit' })}>
           <Plus className="size-4" /> New ticket
         </Button>
       </div>

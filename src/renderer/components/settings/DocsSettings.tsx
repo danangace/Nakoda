@@ -5,7 +5,7 @@ import { cn } from '../../lib/cn'
 import { folderRows, setFolderShown } from '../../lib/docs-visibility'
 import { errorText } from '../../lib/errors'
 import { toast } from '../../store/toast'
-import { Button } from '../ui/Button'
+import { Button } from '@/components/ui/button'
 import { Card, Notice } from '../ui/Field'
 import { Switch } from '../ui/Switch'
 
@@ -40,7 +40,7 @@ export function DocsSettings() {
     <Card
       title="Docs folders"
       actions={
-        <Button variant="primary" onClick={save}>
+        <Button variant="default" onClick={save}>
           Save
         </Button>
       }

@@ -3,7 +3,7 @@ import type { Connector, HelixWrite, WriteOutcome, WritePreview } from '../../..
 import { api } from '../../api/nakoda'
 import { errorText } from '../../lib/errors'
 import { toast } from '../../store/toast'
-import { Button } from '../ui/Button'
+import { Button } from '@/components/ui/button'
 import { Field, Notice, TextArea } from '../ui/Field'
 import { Modal } from '../ui/Modal'
 import { Select } from '../ui/Select'
@@ -112,7 +112,7 @@ export function HelixChangeDialog({ connector, ticketKey, onClose, onDone }: { c
               <TextArea aria-label={mode === 'status' ? 'Note' : 'Comment'} rows={4} value={text} onChange={(e) => setText(e.target.value)} />
             </Field>
             <div className="flex gap-2">
-              <Button variant="primary" disabled={!ready || busy} onClick={() => void showPreview()}>
+              <Button variant="default" disabled={!ready || busy} onClick={() => void showPreview()}>
                 Review
               </Button>
               <Button variant="ghost" onClick={onClose}>
@@ -141,7 +141,7 @@ export function HelixChangeDialog({ connector, ticketKey, onClose, onDone }: { c
               </Notice>
             ))}
             <div className="flex gap-2">
-              <Button variant="primary" data-testid="helix-send" disabled={busy} onClick={() => void send()}>
+              <Button variant="default" data-testid="helix-send" disabled={busy} onClick={() => void send()}>
                 {busy ? 'Sending…' : 'Send to Helix'}
               </Button>
               <Button variant="ghost" disabled={busy} onClick={() => setStage('compose')}>
@@ -161,9 +161,9 @@ export function HelixChangeDialog({ connector, ticketKey, onClose, onDone }: { c
             ))}
             <div className="flex gap-2">
               {!outcome.ok && (
-                <Button onClick={() => setStage('compose')}>Edit</Button>
+                <Button variant="secondary" onClick={() => setStage('compose')}>Edit</Button>
               )}
-              <Button variant="primary" onClick={onClose}>
+              <Button variant="default" onClick={onClose}>
                 Close
               </Button>
             </div>

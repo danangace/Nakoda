@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { api } from '../../api/nakoda'
 import { errorText } from '../../lib/errors'
 import type { ApprovalItem } from '../../lib/transcript'
-import { Button } from '../ui/Button'
+import { Button } from '@/components/ui/button'
 
 /** Approve / Deny card for a tool request (OQ-22), in Orca's quiet card style. */
 export function ApprovalCard({ item }: { item: ApprovalItem }) {
@@ -34,7 +34,7 @@ export function ApprovalCard({ item }: { item: ApprovalItem }) {
         <Button variant="secondary" onClick={() => void answer('deny')}>
           Deny
         </Button>
-        <Button variant="primary" onClick={() => void answer('allow')}>
+        <Button variant="default" onClick={() => void answer('allow')}>
           Approve
         </Button>
       </div>

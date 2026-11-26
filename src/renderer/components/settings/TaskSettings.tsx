@@ -6,7 +6,7 @@ import { errorText } from '../../lib/errors'
 import { statusLabel } from '../../lib/tasks-tabs'
 import { useRouter } from '../../store/router'
 import { toast } from '../../store/toast'
-import { Button } from '../ui/Button'
+import { Button } from '@/components/ui/button'
 import { Card, Field, Notice } from '../ui/Field'
 import { Select } from '../ui/Select'
 
@@ -41,7 +41,7 @@ export function TaskSettings() {
     return (
       <div className="space-y-3 rounded-md border border-dashed border-border p-8 text-center">
         <p className="text-sm text-muted-foreground">No task source is connected yet.</p>
-        <Button onClick={() => navigate({ name: 'settings', section: 'connectors' })}>Connect Helix</Button>
+        <Button variant="secondary" onClick={() => navigate({ name: 'settings', section: 'connectors' })}>Connect Helix</Button>
       </div>
     )
   }
@@ -61,7 +61,7 @@ export function TaskSettings() {
     <Card
       title={`Tasks · ${connector.label}`}
       actions={
-        <Button variant="primary" onClick={save}>
+        <Button variant="default" onClick={save}>
           Save
         </Button>
       }

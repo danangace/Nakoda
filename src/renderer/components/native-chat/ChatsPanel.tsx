@@ -9,7 +9,7 @@ import { describeModel, useAccountModels } from '../../lib/account-models'
 import { errorText } from '../../lib/errors'
 import { useChatUi } from '../../store/chat-ui'
 import { useRouter } from '../../store/router'
-import { Button } from '../ui/Button'
+import { Button } from '@/components/ui/button'
 import { Notice } from '../ui/Field'
 import { Select } from '../ui/Select'
 import { useConfirm } from '../ui/confirm'
@@ -65,7 +65,7 @@ function NewChatForm({ workspace, onCreated }: { workspace: Workspace; onCreated
             options={settings.models.claude.list.map((m) => ({ value: m, label: describeModel(offered, m).name }))}
           />
           <Button
-            variant="primary"
+            variant="default"
             className="w-full"
             onClick={() =>
               api.createChat({ workspaceId: workspace.id, agent: 'claude', accountId, model }).then(onCreated, (e: unknown) => setError(errorText(e)))
@@ -194,7 +194,7 @@ export function ChatsPanel({ workspace }: { workspace: Workspace }) {
         <div className="flex flex-1 items-center justify-center">
           <div className="space-y-3 text-center">
             <p className="text-sm text-muted-foreground">No chat in this workspace yet.</p>
-            <Button variant="primary" onClick={() => setPicker(true)}>
+            <Button variant="default" onClick={() => setPicker(true)}>
               <Plus className="size-4" /> New chat
             </Button>
           </div>

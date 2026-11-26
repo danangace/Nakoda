@@ -8,7 +8,7 @@ import { errorText } from '../../lib/errors'
 import { EFFORTS, PERMISSIONS } from '../../lib/models'
 import { timeAgo } from '../../lib/usage'
 import { toast } from '../../store/toast'
-import { Button } from '../ui/Button'
+import { Button } from '@/components/ui/button'
 import { Card, Notice } from '../ui/Field'
 import { Select } from '../ui/Select'
 import { Switch } from '../ui/Switch'
@@ -118,7 +118,7 @@ export function ModelSettings() {
     <Card
       title="Models · Claude"
       actions={
-        <Button variant="primary" onClick={save}>
+        <Button variant="default" onClick={save}>
           Save
         </Button>
       }

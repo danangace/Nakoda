@@ -6,7 +6,7 @@ import { api } from '../../api/nakoda'
 import { errorText } from '../../lib/errors'
 import { useRouter } from '../../store/router'
 import { useWorkspaces } from '../../store/workspaces'
-import { Button } from '../ui/Button'
+import { Button } from '@/components/ui/button'
 import { Checkbox } from '../ui/Checkbox'
 import { Notice } from '../ui/Field'
 
@@ -50,7 +50,7 @@ export function ArchiveButton({ workspace }: { workspace: Workspace }) {
       {error && <Notice tone="error">{error}</Notice>}
       {dirty && <Notice tone="error">The worktree has uncommitted changes. Archive anyway? They will be lost.</Notice>}
       <div className="flex flex-col gap-2">
-        <Button variant="danger" className="w-full" disabled={busy} onClick={() => archive(dirty)}>
+        <Button variant="destructive" className="w-full" disabled={busy} onClick={() => archive(dirty)}>
           {busy && <Loader2 size={14} className="animate-spin" />}
           {busy ? 'Archiving…' : dirty ? 'Archive and discard changes' : 'Archive'}
         </Button>

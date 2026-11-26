@@ -4,7 +4,7 @@ import { BUILTIN_PLACEHOLDERS } from '../../../shared/doc-paths'
 import type { DocPath, Settings } from '../../../shared/schemas'
 import { api } from '../../api/nakoda'
 import { errorText } from '../../lib/errors'
-import { Button } from '../ui/Button'
+import { Button } from '@/components/ui/button'
 import { toast } from '../../store/toast'
 import { Card, Field, Input, Notice } from '../ui/Field'
 import { Select } from '../ui/Select'
@@ -86,7 +86,7 @@ export function GeneralSettings() {
     <Card
       title="General"
       actions={
-        <Button variant="primary" onClick={save}>
+        <Button variant="default" onClick={save}>
           Save
         </Button>
       }

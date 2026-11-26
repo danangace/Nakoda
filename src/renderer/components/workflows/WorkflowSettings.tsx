@@ -5,7 +5,7 @@ import { api } from '../../api/nakoda'
 import { cn } from '../../lib/cn'
 import { errorText } from '../../lib/errors'
 import { FIELD_TYPE_LABEL, keyFromLabel, parseOptions } from '../../lib/workflow-form'
-import { Button } from '../ui/Button'
+import { Button } from '@/components/ui/button'
 import { Checkbox } from '../ui/Checkbox'
 import { Card, Field, Input, Notice, ScriptArea } from '../ui/Field'
 import { Select } from '../ui/Select'
@@ -148,7 +148,7 @@ function Editor({
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium text-foreground">Fields the user fills when creating a workspace</span>
-          <Button onClick={addField}>
+          <Button variant="secondary" onClick={addField}>
             <Plus size={13} /> Add field
           </Button>
         </div>
@@ -179,7 +179,7 @@ function Editor({
         </div>
       )}
       <div className="flex items-center gap-3">
-        <Button variant="primary" disabled={saving || !draft.name.trim()} onClick={() => void save()}>
+        <Button variant="default" disabled={saving || !draft.name.trim()} onClick={() => void save()}>
           {saving && <Loader2 size={14} className="animate-spin" />}
           {saving ? 'Saving…' : workflow ? 'Save workflow' : 'Create workflow'}
         </Button>

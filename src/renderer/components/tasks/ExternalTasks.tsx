@@ -9,7 +9,7 @@ import { resolveIteration } from '../../lib/task-defaults'
 import { statusLabel } from '../../lib/tasks-tabs'
 import { useRouter } from '../../store/router'
 import { toast } from '../../store/toast'
-import { Button } from '../ui/Button'
+import { Button } from '@/components/ui/button'
 import { Notice } from '../ui/Field'
 import { Select } from '../ui/Select'
 import { TicketMenu } from './TicketMenu'
@@ -45,7 +45,7 @@ function Row({ t, child, actions, toggle, connectorId, onChanged }: { t: Externa
           On board
         </button>
       ) : (
-        <Button className="w-24" disabled={actions.copying === t.key} onClick={() => actions.onTransfer(t.key)}>
+        <Button variant="secondary" className="w-24" disabled={actions.copying === t.key} onClick={() => actions.onTransfer(t.key)}>
           {actions.copying === t.key ? 'Copying…' : 'Transfer'}
         </Button>
       )}
@@ -271,7 +271,7 @@ export function ExternalTasks() {
     return (
       <div className="space-y-3 rounded-md border border-dashed border-border p-8 text-center">
         <p className="text-sm text-muted-foreground">No task source is connected yet.</p>
-        <Button onClick={() => navigate({ name: 'settings', section: 'connectors' })}>Connect Helix</Button>
+        <Button variant="secondary" onClick={() => navigate({ name: 'settings', section: 'connectors' })}>Connect Helix</Button>
       </div>
     )
   }
@@ -315,13 +315,13 @@ export function ExternalTasks() {
       )}
       {data && lastPage > 1 && (
         <div className="flex items-center justify-end gap-2 text-xs text-muted-foreground">
-          <Button disabled={page <= 1 || loading} onClick={() => setPage(page - 1)}>
+          <Button variant="secondary" disabled={page <= 1 || loading} onClick={() => setPage(page - 1)}>
             Previous
           </Button>
           <span>
             Page {data.page} of {lastPage}
           </span>
-          <Button disabled={page >= lastPage || loading} onClick={() => setPage(page + 1)}>
+          <Button variant="secondary" disabled={page >= lastPage || loading} onClick={() => setPage(page + 1)}>
             Next
           </Button>
         </div>
