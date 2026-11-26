@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { existsSync, mkdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
+import { DEFECT_WORKFLOW_ID, branchPrefixFor } from '../../shared/branch'
 import { type AgentId, type Lifecycle, LifecycleInput, type Workspace, WorkspaceInput, type WorkspaceStatus, WorkspaceUpdate } from '../../shared/schemas'
 import type { BoardColumn } from '../../shared/tasks'
 import { getWorkflow, resolveValues } from '../workflows/service'
@@ -8,7 +9,7 @@ import { UserError } from '../errors'
 import { expandHome, nowIso } from '../paths'
 import { getRepo, getSettings } from '../settings/store'
 import type { Db } from '../sqlite/db'
-import { type Git, addWorktree, fetchForBase, git as defaultGit, refExists } from './git'
+import { type Git, addWorktree, fetchForBase, fetchTag, pullLocalBase, git as defaultGit, refExists } from './git'
 
 type WorkspaceRow = {
   id: string
@@ -116,7 +117,7 @@ export async function createWorkspace(db: Db, input: unknown, run: Git = default
   const taken = (name: string) =>
     existsSync(join(workspacesDir, name)) || Boolean(db.prepare('SELECT 1 FROM workspaces WHERE repo_id = ? AND name = ?').get(repo.id, name))
   const name = data.name?.trim() || autoName(taken)
-  const branch = `${repo.branchPrefix}${name}`
+  const branch = `${branchPrefixFor(repo.branchPrefix, workflow?.id === DEFECT_WORKFLOW_ID)}${name}`
   const worktreePath = join(workspacesDir, name)
   const branchField = workflow?.fields.find((f) => f.type === 'branch')
   const base = data.base?.trim() || (branchField ? values[branchField.key] : '') || repo.featureBase
@@ -134,6 +135,13 @@ export async function createWorkspace(db: Db, input: unknown, run: Git = default
     }
     throw new UserError('fetch_failed', `git fetch failed: ${stderr.trim() || (error as Error).message}`)
   }
+  try {
+    await pullLocalBase(run, repo.path, base)
+  } catch (error) {
+    const detail = (error as { stderr?: string }).stderr?.trim() || (error as Error).message
+    throw new UserError('pull_failed', `Could not pull ${base} first: ${detail}`, 409)
+  }
+  if (!(await refExists(run, repo.path, base))) await fetchTag(run, repo.path, base)
   if (!(await refExists(run, repo.path, base))) throw new UserError('base_not_found', `Base not found: ${base}`)
 
   mkdirSync(dirname(worktreePath), { recursive: true })

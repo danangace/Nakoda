@@ -157,6 +157,13 @@ describe('HelixClient', () => {
     expect(calls.map((c) => new URL(c.url).pathname)).toEqual(['/api/search', '/api/tickets/T2-3252'])
   })
 
+  it('also finds a defect assigned to me under a story (any child type, not only subtasks)', async () => {
+    const story = { data: { ...STORY.data, children: [...STORY.data.children.filter((c) => c.type !== 'defect'), { ticket_key: 'T2-3800', type: 'defect', title: 'Wrong total', status: 'to_do', status_category: 'todo', assignee_id: 7, archived: false }] } }
+    const { helix } = client({ '/api/search': () => json(SEARCH), '/api/tickets/T2-3252': () => json(story) })
+    const mine = await helix.mySubtasks({ boardId: 4, iterationId: 95, meId: 7 })
+    expect(mine.map((t) => [t.key, t.type, t.status]).toSorted()).toEqual([['T2-3275', 'subtask', 'open'], ['T2-3800', 'defect', 'to_do']])
+  })
+
   it('maps a story: sections in order, first PRD and Figma links kept, all links collected', async () => {
     const { helix } = client({ '/api/tickets/T2-3252': () => json(STORY) })
     const t = await helix.ticket('T2-3252')

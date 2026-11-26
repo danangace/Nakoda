@@ -1,5 +1,6 @@
 import { Loader2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
+import { DEFECT_WORKFLOW_ID, branchPrefixFor } from '../../../shared/branch'
 import type { Account, Settings, Workflow, WorkflowField } from '../../../shared/schemas'
 import type { Task } from '../../../shared/tasks'
 import { api } from '../../api/nakoda'
@@ -16,6 +17,15 @@ import { Select } from '../ui/Select'
 
 const FREE = '__free'
 const NO_AGENT = '__none'
+
+/**
+ * The Defect workflow's "Handling expectation" says where the fix starts from. Development and
+ * staging are fixed (staging pulls `main` first); a hotfix starts from the release tag you type.
+ */
+export const HANDLING_BASES: Record<string, string> = {
+  'defect development': 'origin/dev/tribe-2',
+  'defect staging': 'main',
+}
 
 export function WorkflowFieldInput({
   field,
@@ -79,6 +89,7 @@ export function CreateWorkspaceModal({ projectId, taskId, onClose }: { projectId
   const [agent, setAgent] = useState(NO_AGENT)
   const [model, setModel] = useState('')
   const [base, setBase] = useState('')
+  const [hotfixTag, setHotfixTag] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [task, setTask] = useState<Task | null>(null)
@@ -123,8 +134,13 @@ export function CreateWorkspaceModal({ projectId, taskId, onClose }: { projectId
 
   const missing = useMemo(() => (workflow?.fields ?? []).filter((f) => f.required && !values[f.key]?.trim()).map((f) => f.label), [workflow, values])
   const branchField = workflow?.fields.find((f) => f.type === 'branch')
-  const effectiveBase = base.trim() || (branchField && values[branchField.key]?.trim()) || repo?.featureBase || ''
-  const branchPreview = `${repo?.branchPrefix ?? ''}${name.trim() || 'ws-<date>'}`
+  // "Handling expectation" (Defect workflow) decides the base: development, staging, or a hotfix from a tag. Advanced still wins.
+  const handling = workflow?.fields.some((f) => f.key === 'handling') ? (values.handling ?? '') : ''
+  const isHotfix = handling === 'hotfix'
+  const handlingBase = isHotfix ? hotfixTag.trim() : (HANDLING_BASES[handling] ?? '')
+  const needsTag = isHotfix && !hotfixTag.trim() && !base.trim()
+  const effectiveBase = base.trim() || handlingBase || (branchField && values[branchField.key]?.trim()) || repo?.featureBase || ''
+  const branchPreview = `${branchPrefixFor(repo?.branchPrefix ?? '', workflow?.id === DEFECT_WORKFLOW_ID)}${name.trim() || 'ws-<date>'}`
 
   const create = async () => {
     setBusy(true)
@@ -135,7 +151,7 @@ export function CreateWorkspaceModal({ projectId, taskId, onClose }: { projectId
         name: name.trim() || undefined,
         workflowId: workflow?.id ?? null,
         values: workflow ? values : {},
-        base: base.trim() || undefined,
+        base: base.trim() || handlingBase || undefined,
       })
       // From a ticket: the new workspace takes it (the ticket moves to In progress).
       if (taskId) await api.assignTask(taskId, ws.id)
@@ -153,7 +169,7 @@ export function CreateWorkspaceModal({ projectId, taskId, onClose }: { projectId
     }
   }
 
-  const canCreate = Boolean(repoId) && missing.length === 0 && !busy
+  const canCreate = Boolean(repoId) && missing.length === 0 && !needsTag && !busy
   return (
     <Modal title="Create workspace" onClose={onClose}>
       <div
@@ -195,6 +211,11 @@ export function CreateWorkspaceModal({ projectId, taskId, onClose }: { projectId
                     onChange={(v) => setValues((cur) => ({ ...cur, [f.key]: v }))}
                   />
                 ))}
+                {isHotfix && (
+                  <Field label="Release tag *" hint="The latest tag in production, e.g. v1.42.0. The hotfix branch starts from it.">
+                    <Input aria-label="Release tag" value={hotfixTag} placeholder="v1.42.0" onChange={(e) => setHotfixTag(e.target.value)} />
+                  </Field>
+                )}
                 <datalist id="nakoda-doc-folders">
                   {folders.map((f) => (
                     <option key={f} value={f} />
@@ -232,6 +253,7 @@ export function CreateWorkspaceModal({ projectId, taskId, onClose }: { projectId
             <p className="text-xs text-muted-foreground">
               Branch <code className="text-foreground/80">{branchPreview}</code> from <code className="text-foreground/80">{effectiveBase}</code>
             </p>
+            {needsTag && <p className="text-xs text-warning">Fill in: Release tag</p>}
             {missing.length > 0 && <p className="text-xs text-warning">Fill in: {missing.join(', ')}</p>}
             <div className="flex justify-end">
               <Button variant="primary" disabled={!canCreate} onClick={() => void create()}>

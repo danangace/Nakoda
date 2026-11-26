@@ -317,7 +317,7 @@ test('Settings lives in the sidebar: sections, Connectors, and Back to Nakoda', 
 
   // The sections are in the sidebar (not tabs in the page); General is open first.
   const sections = page.getByRole('navigation', { name: 'Settings sections' })
-  for (const name of ['General', 'Workflows', 'Accounts', 'Models', 'Connectors']) {
+  for (const name of ['General', 'Workflows', 'Accounts', 'Models', 'Docs', 'Connectors']) {
     await expect(sections.getByRole('button', { name, exact: true })).toBeVisible()
   }
   await expect(sections.getByRole('button', { name: 'General', exact: true })).toHaveAttribute('aria-current', 'page')
@@ -327,6 +327,17 @@ test('Settings lives in the sidebar: sections, Connectors, and Back to Nakoda', 
   await sections.getByRole('button', { name: 'Connectors', exact: true }).click()
   await expect(page).toHaveURL(/\/settings\/connectors$/)
   await expect(page.getByRole('heading', { level: 1, name: 'Connectors', exact: true })).toBeVisible()
+  await expect(page.getByText('No connectors yet')).toBeVisible()
+  // Platforms: only Helix can be chosen; picking it adds a card whose Configure opens the setup modal.
+  await page.getByRole('combobox', { name: 'Add connector' }).click()
+  for (const name of ['Jira', 'ClickUp', 'Lark']) await expect(page.getByRole('option', { name: new RegExp(name) })).toHaveAttribute('aria-disabled', 'true')
+  await page.getByRole('option', { name: 'Helix' }).click()
+  const card = page.getByRole('region', { name: 'Helix connector' })
+  await expect(card.getByRole('status')).toHaveText('Not configured')
+  await card.getByRole('button', { name: 'Configure' }).click()
+  await expect(page.getByRole('dialog', { name: 'Configure Helix' })).toBeVisible()
+  await page.getByRole('button', { name: 'Cancel' }).click()
+  await card.getByRole('button', { name: 'Remove' }).click()
   await expect(page.getByText('No connectors yet')).toBeVisible()
   // The sidebar follows the page: Connectors is the current section, General is not.
   await expect(sections.getByRole('button', { name: 'Connectors', exact: true })).toHaveAttribute('aria-current', 'page')
@@ -410,7 +421,9 @@ test('Connect Helix in Settings, then read the External tab (read-only)', async 
   await expect(page).toHaveURL(/\/settings\/connectors$/)
 
   // Add a connection with a pasted token; it is tested right away.
-  await page.getByRole('button', { name: 'Add Helix' }).click()
+  await page.getByRole('combobox', { name: 'Add connector' }).click()
+  await page.getByRole('option', { name: 'Helix' }).click()
+  await page.getByRole('button', { name: 'Configure' }).click()
   await page.getByLabel('Helix address').fill('http://helix.example.test')
   await page.getByLabel('Read-only token').fill(token)
   await page.getByRole('button', { name: 'Add connection' }).click()
@@ -419,6 +432,7 @@ test('Connect Helix in Settings, then read the External tab (read-only)', async 
   await page.getByRole('button', { name: 'Add connection' }).click()
   await expect(page.getByTestId('connection-test')).toContainText('Connected as Ada Lovelace')
   await expect(page.getByTestId('connection-test')).toContainText('Scope: read_only')
+  await expect(page.getByRole('region', { name: 'Helix connector' }).getByRole('status')).toHaveText('Connected')
   // The token is only ever shown as a hint.
   await expect(page.getByText('sidpjm_…dddd')).toBeVisible()
   await expect(page.locator('body')).not.toContainText(token)
@@ -553,7 +567,9 @@ test('Transfer a Helix defect and a story to the board; the defect gets the Defe
   // Connect (this test is self-contained and cleans up).
   await page.locator('aside').getByRole('button', { name: 'Settings', exact: true }).click()
   await page.getByRole('navigation', { name: 'Settings sections' }).getByRole('button', { name: 'Connectors', exact: true }).click()
-  await page.getByRole('button', { name: 'Add Helix' }).click()
+  await page.getByRole('combobox', { name: 'Add connector' }).click()
+  await page.getByRole('option', { name: 'Helix' }).click()
+  await page.getByRole('button', { name: 'Configure' }).click()
   await page.getByLabel('Helix address').fill('https://helix.example.test')
   await page.getByLabel('Read-only token').fill(token)
   await page.getByRole('button', { name: 'Add connection' }).click()
@@ -655,4 +671,28 @@ test('Tasks and Docs open in a new tab, already signed in', async ({ page, conte
   await aside.getByRole('link', { name: 'Tasks', exact: true }).click()
   await expect(page).toHaveURL(/\/tasks\/board$/)
   expect(context.pages()).toHaveLength(1)
+})
+
+test('Settings → Docs hides a folder from the Docs sidebar, and shows it again', async ({ page }) => {
+  await page.goto(`/?token=${TOKEN}`)
+  await page.goto(`/settings/docs?token=${TOKEN}`)
+  await expect(page.getByRole('heading', { level: 1, name: 'Docs', exact: true })).toBeVisible()
+  const notes = page.getByRole('switch', { name: 'Show notes' })
+  await expect(notes).toBeChecked()
+  await notes.click()
+  await page.getByRole('button', { name: 'Save' }).click()
+  await expect(page.getByText('Docs saved')).toBeVisible()
+
+  await page.goto(`/docs?token=${TOKEN}`)
+  const sidebar = page.locator('aside')
+  await expect(sidebar.getByText('README', { exact: true })).toBeVisible()
+  await expect(sidebar.getByText('notes', { exact: true })).toHaveCount(0)
+
+  // Back on: the folder returns.
+  await page.goto(`/settings/docs?token=${TOKEN}`)
+  await page.getByRole('switch', { name: 'Show notes' }).click()
+  await page.getByRole('button', { name: 'Save' }).click()
+  await expect(page.getByText('Docs saved')).toBeVisible()
+  await page.goto(`/docs?token=${TOKEN}`)
+  await expect(page.locator('aside').getByText('notes', { exact: true })).toBeVisible()
 })

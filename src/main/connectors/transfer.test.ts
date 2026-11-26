@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { DEFECT, STORY, SUBTASK } from './fixtures/helix'
 import { HelixClient } from './helix'
-import { DEFAULT_MAPPINGS, slug, toTaskInput, withParent } from './transfer'
+import { DEFAULT_MAPPINGS, appFromUrl, pageUrlFrom, slug, toTaskInput, withParent } from './transfer'
 
 const ids = { planning: 'planning', defect: 'defect' }
 const ticket = async (body: unknown) =>
@@ -30,6 +30,18 @@ describe('toTaskInput', () => {
       actual: 'Land on the dashboard',
       references: '',
     })
+  })
+
+  it('takes the page URL from the ticket text and the app from its host; no link means both stay empty', async () => {
+    const withText = (steps: string) => ({ data: { ...DEFECT.data, steps_to_reproduce: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: steps }] }] } } })
+    const input = toTaskInput(
+      await ticket(withText('1. Design https://www.figma.com/design/abc 2. Open https://core.example.test/payments/42?tab=2, then click Pay. Screenshot https://x.test/a.png')),
+      DEFAULT_MAPPINGS,
+      ids,
+      null,
+    )
+    expect(input.values).toMatchObject({ url_page: 'https://core.example.test/payments/42?tab=2', app: 'core' })
+    expect(toTaskInput(await ticket(DEFECT), DEFAULT_MAPPINGS, ids, null).values).toMatchObject({ url_page: '', app: '' })
   })
 
   it('uses the edited mappings, and leaves a value empty when nothing maps', async () => {
@@ -65,4 +77,19 @@ describe('withParent', () => {
 
 describe('slug', () => {
   it('makes a folder-safe name', () => expect(slug('[FE] Link  redirect!!')).toBe('fe-link-redirect'))
+})
+
+describe('appFromUrl', () => {
+  it('finds a known app in the host and nothing otherwise', () => {
+    expect(appFromUrl('https://expert.sekolah.test/x')).toBe('expert')
+    expect(appFromUrl('https://staging-core.sekolah.test/x')).toBe('')
+    expect(appFromUrl('not a url')).toBe('')
+  })
+})
+
+describe('pageUrlFrom', () => {
+  it('skips Helix and reference links', async () => {
+    const t = { url: 'https://helix.test/tickets/T2-1', prdLinks: ['https://prd.test/p'], figmaLinks: [], sections: {}, description: 'See https://helix.test/tickets/T2-9 and https://prd.test/p and https://docs.google.com/d/1 and https://app.sekolah.test/home.' }
+    expect(pageUrlFrom(t as never)).toBe('https://app.sekolah.test/home')
+  })
 })

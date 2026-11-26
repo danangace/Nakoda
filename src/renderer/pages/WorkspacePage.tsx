@@ -1,7 +1,8 @@
-import { Check, ChevronRight, Copy, FileText, PanelRight, Pencil } from 'lucide-react'
+import { Check, ChevronRight, Copy, ExternalLink, FileText, PanelRight, Pencil } from 'lucide-react'
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import { resolveDocPath } from '../../shared/doc-paths'
-import { LIFECYCLES, LIFECYCLE_LABEL, type Lifecycle, type Settings, type Workflow, type Workspace, isFinished } from '../../shared/schemas'
+import { type DocNodeT, LIFECYCLES, LIFECYCLE_LABEL, type Lifecycle, type Settings, type Workflow, type Workspace, isFinished } from '../../shared/schemas'
+import type { Task } from '../../shared/tasks'
 import { useRouter } from '../store/router'
 import { useWorkspaces } from '../store/workspaces'
 import { api } from '../api/nakoda'
@@ -14,7 +15,9 @@ import { Notice } from '../components/ui/Field'
 import { Select } from '../components/ui/Select'
 import { cn } from '../lib/cn'
 import { errorText } from '../lib/errors'
+import { docFiles } from '../lib/docs-folders'
 import { hasPref, readPref, writePref } from '../lib/local-pref'
+import { routePath } from '../lib/route'
 import { useAppEvents } from '../store/events'
 
 function CopyButton({ value, label }: { value: string; label: string }) {
@@ -41,12 +44,14 @@ function CopyButton({ value, label }: { value: string; label: string }) {
  * One topic per row: the name on top, the full value below (wrapped, never cut off) and a copy button,
  * so a long PRD / Figma link or doc path can be read and copied whole.
  */
-function DetailRow({ label, value, copy, open, note }: { label: string; value: string; copy?: string; open?: ReactNode; note?: ReactNode }) {
+function DetailRow({ label, value, copy, open, note, created }: { label: string; value: string; copy?: string; open?: ReactNode; note?: ReactNode; created?: boolean }) {
   const isUrl = /^https?:\/\//.test(value)
   return (
     <div className="rounded-md border border-border/60 bg-background/40 px-2.5 py-1.5">
       <div className="flex items-center gap-1">
         <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">{label}</span>
+        {created === true && <span className="rounded bg-success/10 px-1.5 py-0.5 text-[11px] text-success">created</span>}
+        {created === false && <span className="text-[11px] text-muted-foreground/60">not created yet</span>}
         {open}
         {value && <CopyButton value={copy ?? value} label={label} />}
       </div>
@@ -84,11 +89,56 @@ function WorkflowChip({ workflowId }: { workflowId: string }) {
 }
 
 /** The workflow values Claude receives in every chat of this workspace (workspace context). */
+/** The ticket this workspace is for, with its link to the source (Helix). With several over time, the one still in progress, else the latest. */
+function useWorkspaceTask(workspaceId: string): Task | null {
+  const [task, setTask] = useState<Task | null>(null)
+  useEffect(() => {
+    api.listTasks().then(
+      (all) => {
+        const mine = all.filter((t) => t.workspaceId === workspaceId)
+        const open = mine.filter((t) => t.column !== 'review' && t.column !== 'done')
+        const pick = (open.length ? open : mine).toSorted((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0]
+        setTask(pick ?? null)
+      },
+      () => setTask(null),
+    )
+  }, [workspaceId])
+  return task
+}
+
+function SourceLink({ task }: { task: Task }) {
+  if (!task.externalUrl) return null
+  return (
+    <a
+      href={task.externalUrl}
+      target="_blank"
+      rel="noreferrer"
+      title={task.title}
+      className="flex items-center gap-1.5 rounded-md border border-border/60 bg-background/40 px-2.5 py-1.5 text-xs text-foreground hover:bg-secondary"
+    >
+      <ExternalLink className="size-3.5 shrink-0 text-muted-foreground" />
+      <span className="min-w-0 flex-1 truncate">
+        <span className="font-medium">{task.externalId ?? 'Source'}</span>
+        <span className="text-muted-foreground"> · Open in Helix</span>
+      </span>
+    </a>
+  )
+}
+
 function TaskDetails({ workspace }: { workspace: Workspace }) {
   const workflow = useWorkflow(workspace.workflowId)
-  if (!workspace.workflowId) return <div className="text-sm text-foreground/80">Free chat</div>
+  const task = useWorkspaceTask(workspace.id)
+  if (!workspace.workflowId) {
+    return (
+      <div className="space-y-1.5">
+        <div className="text-sm text-foreground/80">Free chat</div>
+        {task && <SourceLink task={task} />}
+      </div>
+    )
+  }
   return (
     <div className="space-y-1.5" title="Claude gets these in every chat of this workspace">
+      {task && <SourceLink task={task} />}
       <div className="mb-1 text-sm font-medium text-info">{workflow?.name ?? 'Workflow'}</div>
       {(workflow?.fields ?? []).map((f) => (
         <DetailRow key={f.key} label={f.label} value={workspace.values[f.key] ?? ''} />
@@ -102,9 +152,18 @@ function DocLocations({ workspace, onEdit }: { workspace: Workspace; onEdit: () 
   const workflow = useWorkflow(workspace.workflowId)
   const navigate = useRouter((s) => s.navigate)
   const [settings, setSettings] = useState<Settings | null>(null)
+  // Which of the doc paths already exist as notes (the ones Claude or you created), kept fresh as the docs change.
+  const [files, setFiles] = useState<Set<string> | null>(null)
+  const loadFiles = useCallback(() => {
+    api.docsTree(true).then((t: DocNodeT[]) => setFiles(docFiles(t)), () => setFiles(null))
+  }, [])
   useEffect(() => {
     api.getSettings().then(setSettings, () => setSettings(null))
-  }, [])
+    loadFiles()
+  }, [loadFiles])
+  useAppEvents((e) => {
+    if (e.type === 'docs.changed') loadFiles()
+  })
   if (!settings) return null
   if (!settings.docsRoot) return <div className="text-xs text-muted-foreground">Set a docs root in Settings → General to see doc paths.</div>
   if (settings.docPaths.length === 0) return <div className="text-xs text-muted-foreground">No doc paths yet. Add them in Settings → General.</div>
@@ -115,12 +174,15 @@ function DocLocations({ workspace, onEdit }: { workspace: Workspace; onEdit: () 
         const r = resolveDocPath(p, workspace, workflow)
         const full = `${root}/${r.path}`
         const canOpen = r.missing.length === 0 && r.path.endsWith('.md')
+        const created = canOpen && files?.has(r.path)
+        const href = routePath({ name: 'docs', path: r.path })
         return (
           <DetailRow
             key={p.label}
             label={p.label}
             value={r.path}
             copy={full}
+            created={created ? true : canOpen && files ? false : undefined}
             note={
               r.missing.length ? (
                 <>
@@ -132,16 +194,28 @@ function DocLocations({ workspace, onEdit }: { workspace: Workspace; onEdit: () 
               ) : undefined
             }
             open={
-              canOpen ? (
-                <button
-                  type="button"
-                  aria-label={`Open ${p.label} in Docs`}
-                  title="Open in Docs"
-                  onClick={() => navigate({ name: 'docs', path: r.path })}
-                  className="flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-secondary hover:text-foreground"
-                >
-                  <FileText className="size-3.5" />
-                </button>
+              canOpen && created !== false ? (
+                <>
+                  <button
+                    type="button"
+                    aria-label={`Open ${p.label} in Docs`}
+                    title="Open in Docs"
+                    onClick={() => navigate({ name: 'docs', path: r.path })}
+                    className="flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  >
+                    <FileText className="size-3.5" />
+                  </button>
+                  <a
+                    href={href}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label={`Open ${p.label} in a new tab`}
+                    title="Open in a new tab"
+                    className="flex size-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  >
+                    <ExternalLink className="size-3.5" />
+                  </a>
+                </>
               ) : undefined
             }
           />

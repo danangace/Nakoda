@@ -6,13 +6,14 @@ import { errorText } from '../../lib/errors'
 import { useAppEvents } from '../../store/events'
 import { useRouter } from '../../store/router'
 import { Notice } from '../ui/Field'
-import { DocTree } from './DocTree'
+import { CopyPathButton, DocTree } from './DocTree'
 
 /** Replaces the main sidebar content while Docs is open: a back button, then the folder tree. */
 export function DocsSidebar({ path }: { path: string }) {
   const navigate = useRouter((s) => s.navigate)
   const [tree, setTree] = useState<DocNodeT[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [root, setRoot] = useState('')
 
   const loadTree = useCallback(() => {
     api.docsTree().then(
@@ -24,6 +25,9 @@ export function DocsSidebar({ path }: { path: string }) {
     )
   }, [])
   useEffect(loadTree, [loadTree])
+  useEffect(() => {
+    api.docsRoot().then((r) => setRoot(r.root), () => setRoot(''))
+  }, [])
   useAppEvents((event) => {
     if (event.type === 'docs.changed') loadTree()
   })
@@ -40,11 +44,12 @@ export function DocsSidebar({ path }: { path: string }) {
           <span>Back to Nakoda</span>
         </button>
       </div>
-      <div className="mt-2 flex h-8 items-center px-2">
+      <div className="group/row mt-2 flex h-8 items-center justify-between px-2">
         <span className="pl-2 text-xs font-semibold text-muted-foreground/80 select-none">Docs</span>
+        {root && <CopyPathButton path={root} label="docs root" />}
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
-        {error ? <Notice tone="error">{error}</Notice> : <DocTree nodes={tree} active={path} onOpen={(p) => navigate({ name: 'docs', path: p })} />}
+        {error ? <Notice tone="error">{error}</Notice> : <DocTree nodes={tree} active={path} onOpen={(p) => navigate({ name: 'docs', path: p })} root={root} />}
       </div>
     </>
   )

@@ -198,7 +198,7 @@ export class HelixClient {
   }
 
   /**
-   * Subtasks assigned to `meId` in one iteration. Helix search filters on the top-level ticket's
+   * Child tickets of any type (subtasks, defects) assigned to `meId` in one iteration. Helix search filters on the top-level ticket's
    * assignee and never returns subtasks (verified 2026-11-13), so a subtask of yours under a story
    * assigned to someone else (or to nobody) is only reachable through that story. So: list every
    * parent in the iteration, whoever owns it, and read its children. Bounded by needing an iteration.
@@ -221,7 +221,7 @@ export class HelixClient {
       const batch = parents.slice(i, i + PARENT_CONCURRENCY)
       const kids = await Promise.all(batch.map((p) => this.children(p.key)))
       batch.forEach((p, j) => {
-        for (const c of kids[j] ?? []) if (c.type === 'subtask' && c.assigneeId === query.meId) mine.push({ ...c, iteration: c.iteration ?? p.iteration, board: c.board ?? p.board, parent: { key: p.key, title: p.title } })
+        for (const c of kids[j] ?? []) if (c.assigneeId === query.meId) mine.push({ ...c, iteration: c.iteration ?? p.iteration, board: c.board ?? p.board, parent: { key: p.key, title: p.title } })
       })
     }
     return mine

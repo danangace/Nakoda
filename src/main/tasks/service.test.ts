@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_SETTINGS, addRepo, saveSettings } from '../settings/store'
 import { openDb } from '../sqlite/db'
+import { archiveWorkspace } from '../workspaces/archive'
 import { createWorkspace } from '../workspaces/service'
 import { makeRepoWithOrigin } from '../workspaces/testing'
 import { assignTask, createTask, deleteTask, getTask, listTasks, moveTask, unassignTask, updateTask } from './service'
@@ -73,6 +74,26 @@ describe('assign', () => {
     const { db, ready, ws } = await setup()
     const t = ready('A')
     expect(assignTask(db, t.id, ws.id)).toMatchObject({ workspaceId: ws.id, column: 'in_progress' })
+  })
+
+  it('archiving the workspace frees its ticket, so it can be assigned to a new workspace', async () => {
+    const { db, ready, ws, repo } = await setup()
+    const t = ready('A')
+    assignTask(db, t.id, ws.id)
+    await archiveWorkspace(db, ws.id, {})
+    expect(getTask(db, t.id).workspaceId).toBeNull()
+    const next = await createWorkspace(db, { repoId: repo.id, name: 'two' })
+    expect(assignTask(db, t.id, next.id).workspaceId).toBe(next.id)
+  })
+
+  it('a leftover link to an archived workspace does not block assigning', async () => {
+    const { db, ready, ws, repo } = await setup()
+    const t = ready('A')
+    assignTask(db, t.id, ws.id)
+    // As an older version left it: archived, but the ticket still points at it.
+    db.prepare('UPDATE workspaces SET archived_at = ? WHERE id = ?').run(new Date().toISOString(), ws.id)
+    const next = await createWorkspace(db, { repoId: repo.id, name: 'three' })
+    expect(assignTask(db, t.id, next.id).workspaceId).toBe(next.id)
   })
 
   it('refuses a ticket that is not ready and says what is missing', async () => {

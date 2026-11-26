@@ -38,6 +38,42 @@ export function slug(text: string, max = 40): string {
 /** The first Figma link if there is one, otherwise the first link. */
 const pickFigma = (links: string[]): string => links.find((l) => /figma\.com/i.test(l)) ?? links[0] ?? ''
 
+/** Apps a page URL can point at (the Defect workflow's "App" values that show up as a host name part). */
+const APPS = ['core', 'client', 'app', 'expert', 'account']
+/** Links in a ticket that are references, not the page with the defect. */
+const NOT_A_PAGE = /(^|\.)(figma|clickup|slack|notion|loom|miro|atlassian)\.(com|so|net|io)$|(^|\.)(docs|drive)\.google\.com$|\.(png|jpe?g|gif|webp|svg|mp4|mov|pdf)$/i
+
+/**
+ * The page a defect happens on. Helix has no field for it; it is written in the ticket text, so take the
+ * first link of the steps, actual and expected text (then the rest) that is not a PRD, Figma, document,
+ * screenshot or Helix link. Empty when there is none. A person can correct it on the ticket.
+ */
+export function pageUrlFrom(ticket: HelixTicket): string {
+  const known = new Set([...ticket.prdLinks, ...ticket.figmaLinks])
+  const helixHost = new URL(ticket.url).host
+  const text = [ticket.sections.steps_to_reproduce, ticket.sections.actual_behavior, ticket.sections.expected_behavior, ticket.description].filter(Boolean).join('\n')
+  for (const m of text.matchAll(/https?:\/\/[^\s)\]>"'`]+/gi)) {
+    const link = m[0].replace(/[.,;:!?]+$/, '')
+    if (known.has(link)) continue
+    try {
+      const url = new URL(link)
+      if (url.host === helixHost || NOT_A_PAGE.test(url.hostname) || NOT_A_PAGE.test(url.pathname)) continue
+      return link
+    } catch {}
+  }
+  return ''
+}
+
+/** The app from a page URL when its host says so (`core.example.com` → `core`); empty when it does not. */
+export function appFromUrl(pageUrl: string): string {
+  try {
+    const labels = new URL(pageUrl).hostname.split('.')
+    return labels.find((l) => APPS.includes(l.toLowerCase()))?.toLowerCase() ?? ''
+  } catch {
+    return ''
+  }
+}
+
 export type TransferInput = {
   title: string
   description: string
@@ -57,6 +93,7 @@ export function toTaskInput(ticket: HelixTicket, mappings: Mappings, workflowIds
   const common = { title: ticket.title, priority: ticket.priority ?? '', kind: ticket.kind, repoId }
 
   if (ticket.kind === 'defect') {
+    const pageUrl = pageUrlFrom(ticket)
     return {
       ...common,
       description: ticket.description,
@@ -65,6 +102,8 @@ export function toTaskInput(ticket: HelixTicket, mappings: Mappings, workflowIds
         defect: slug(ticket.title),
         environment: mappings.environment[ticket.type] ?? '',
         severity: mappings.severity[ticket.severity ?? ''] ?? '',
+        url_page: pageUrl,
+        app: appFromUrl(pageUrl),
         iteration: ticket.iteration ?? '',
         steps: ticket.sections.steps_to_reproduce ?? '',
         expected: ticket.sections.expected_behavior ?? '',

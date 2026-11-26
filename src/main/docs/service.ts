@@ -6,10 +6,12 @@ import { UserError } from '../errors'
 import { expandHome, isDirectory } from '../paths'
 import { getSettings } from '../settings/store'
 import type { Db } from '../sqlite/db'
-import { IMAGE_EXT, buildTree, listFiles, resolveLink, wikiTargets } from './index'
+import { IMAGE_EXT, buildTree, hideFolders, listFiles, resolveLink, wikiTargets } from './index'
 
 export type DocFile = {
   path: string
+  /** Absolute path on disk, so it can be copied as a reference. */
+  fullPath: string
   frontmatter: Record<string, unknown>
   body: string
   /** wiki-link / embed target → resolved docs path (null when not found). */
@@ -41,8 +43,10 @@ export class DocsService {
     this.cache = null
   }
 
-  tree(): DocNodeT[] {
-    return buildTree(this.files())
+  /** The notes tree as the app shows it. `all` ignores Settings → Docs (that screen lists every folder). */
+  tree(all = false): DocNodeT[] {
+    const tree = buildTree(this.files())
+    return all ? tree : hideFolders(tree, getSettings(this.db).docsHidden)
   }
 
   /** Resolve a relative path and refuse anything outside the docs root (AC-D4). */
@@ -66,7 +70,7 @@ export class DocsService {
     const files = this.files()
     const links: Record<string, string | null> = {}
     for (const target of wikiTargets(body)) links[target] = resolveLink(files, target, rel)
-    return { path: rel, frontmatter, body, links }
+    return { path: rel, fullPath: full, frontmatter, body, links }
   }
 
   asset(rel: string): { full: string; type: string } {

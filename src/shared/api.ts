@@ -7,6 +7,7 @@ export const API = {
   accounts: '/api/accounts',
   accountsDetect: '/api/accounts/detect',
   docsTree: '/api/docs/tree',
+  docsRoot: '/api/docs/root',
   docsFile: '/api/docs/file',
   docsAsset: '/api/docs/asset',
   docsResolve: '/api/docs/resolve',
