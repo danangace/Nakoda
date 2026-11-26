@@ -8,6 +8,8 @@ import { defineConfig } from 'vite'
 export default defineConfig({
   root: resolve(import.meta.dirname, 'src/renderer'),
   plugins: [react(), tailwindcss()],
+  // `@/` = the renderer root, the alias shadcn components import through.
+  resolve: { alias: { '@': resolve(import.meta.dirname, 'src/renderer') } },
   server: {
     // Dev: the UI runs on Vite (5173) and proxies the runtime (start it with NAKODA_DEV=1).
     proxy: {
