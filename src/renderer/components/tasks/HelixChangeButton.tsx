@@ -8,14 +8,14 @@ import { HelixChangeDialog } from './HelixChangeDialog'
  * "Update Helix" for a ticket that came from Helix. Absent unless a connection has a write token, so
  * a read-only setup looks exactly as before. Clicks stay inside: the card around it opens the ticket.
  */
-export function HelixChangeButton({ task, onDone }: { task: Pick<Task, 'source' | 'externalId'>; onDone?: () => void }) {
+export function HelixChangeButton({ task, connectorId, onDone }: { task: Pick<Task, 'source' | 'externalId'>; connectorId?: string; onDone?: () => void }) {
   const writer = useHelixWriter((s) => s.writer)
   const load = useHelixWriter((s) => s.load)
   const [open, setOpen] = useState(false)
   useEffect(() => {
     void load()
   }, [load])
-  if (task.source !== 'helix' || !task.externalId || !writer) return null
+  if (task.source !== 'helix' || !task.externalId || !writer || (connectorId && writer.id !== connectorId)) return null
   return (
     <span onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
       <button

@@ -783,6 +783,20 @@ test('Update a Helix ticket from its card: review the exact request, then send (
   await page.screenshot({ path: shot('breakdown-doc'), animations: 'disabled' })
   await again.getByRole('button', { name: 'Cancel' }).click()
 
+  // The same two actions are on the External list, so a ticket does not have to be transferred first.
+  await page.getByRole('tab', { name: 'External' }).click()
+  const external = page.getByTestId('external-item')
+  const storyRow = external.filter({ hasText: 'Invoice Management - Phase 1' })
+  await storyRow.getByTestId('helix-breakdown').first().click()
+  await expect(page.getByRole('dialog', { name: 'Break down T2-3252' })).toBeVisible()
+  await page.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click()
+  const defectRow = external.filter({ hasText: '[FE] Link redirect after login' })
+  // A defect has no subtasks to plan, but it can still be updated.
+  await expect(defectRow.getByTestId('helix-breakdown')).toHaveCount(0)
+  await defectRow.getByTestId('helix-change').click()
+  await expect(page.getByRole('dialog', { name: 'Update T2-3672 in Helix' })).toBeVisible()
+  await page.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click()
+
   // Clean up.
   await page.locator('aside').getByRole('button', { name: 'Settings', exact: true }).click()
   await page.getByRole('navigation', { name: 'Settings sections' }).getByRole('button', { name: 'Connectors', exact: true }).click()
