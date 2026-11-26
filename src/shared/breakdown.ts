@@ -94,3 +94,21 @@ export function findSimilar(title: string, existing: { key: string; title: strin
 export function formatSubtaskList(rows: ParsedRow[], notes: string[] = []): string {
   return [...rows.map((r) => `- ${r.title}${r.storyPoint === null ? '' : ` (${r.storyPoint})`}`), ...notes.map((n) => `Note: ${n}`)].join('\n')
 }
+
+const TAGGED_ITEM = /^(?:[-*•]|\d{1,3}[.)])\s+(?:\[[ xX]\]\s+)?\[(?:fe|be)\]\s*\S/i
+const QUOTED = /^>\s?/
+const FRONTMATTER = /^---\r?\n[\s\S]*?\r?\n---\r?\n?/
+
+/**
+ * The list inside a document that was written for it (a breakdown made with the skill), with its title,
+ * paragraphs and frontmatter around it. Only a list item that starts with [FE] or [BE], and Note lines,
+ * count; everything else is the document talking. The items then read like any typed list.
+ */
+export function extractBreakdown(markdown: string): ParsedList {
+  const lines = markdown
+    .replace(FRONTMATTER, '')
+    .split(/\r?\n/)
+    .map((l) => l.trim().replace(QUOTED, ''))
+    .filter((l) => TAGGED_ITEM.test(l) || NOTE.test(l))
+  return parseSubtaskList(lines.join('\n'))
+}

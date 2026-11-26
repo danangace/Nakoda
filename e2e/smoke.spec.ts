@@ -724,6 +724,9 @@ test('Update a Helix ticket from its card: review the exact request, then send (
   await story.getByTestId('helix-breakdown').click()
   const bd = page.getByRole('dialog', { name: 'Break down T2-3252' })
   await expect(bd).toContainText('2 subtasks already')
+  // The default source is a document that already holds the list; a raw spec is the other one.
+  await expect(bd.getByRole('tab', { name: 'From a breakdown document' })).toHaveAttribute('aria-selected', 'true')
+  await bd.getByRole('tab', { name: 'From a spec' }).click()
   await bd.getByLabel('Find a document').fill('FE-01')
   await bd.getByTestId('doc-list').getByRole('button', { name: 'spec/FE-01 Invoices.md' }).click()
   await expect(bd.getByTestId('doc-view').getByRole('heading', { name: 'FE-01 Invoices' })).toBeVisible()
@@ -767,6 +770,17 @@ test('Update a Helix ticket from its card: review the exact request, then send (
   const again = page.getByRole('dialog', { name: 'Break down T2-3252' })
   await expect(again.getByTestId('doc-view').getByRole('heading', { name: 'FE-01 Invoices' })).toBeVisible()
   await expect(again).toContainText('You broke this ticket down from this document before: 3 subtasks created')
+  // That document holds no list, so it opened as a spec. A breakdown document is the other source:
+  // its list goes straight into the editor, with no Claude involved.
+  await expect(again.getByRole('tab', { name: 'From a spec' })).toHaveAttribute('aria-selected', 'true')
+  await again.getByRole('tab', { name: 'From a breakdown document' }).click()
+  await expect(again.getByTestId('breakdown-found')).toContainText('No [FE]/[BE] list in this document')
+  await again.getByLabel('Find a document').fill('Breakdown')
+  await again.getByTestId('doc-list').getByRole('button', { name: 'spec/Breakdown T2-3252.md' }).click()
+  await expect(again.getByTestId('breakdown-found')).toContainText('Found 3 subtasks')
+  await expect(again.getByLabel('Subtasks', { exact: true })).toHaveValue('- [BE] Add paged invoice list endpoint (2)\n- [FE] Show invoice list with search (3)\n- [FE] Export dialog (3)\nNote: AC-4 has no API contract')
+  await expect(again.getByRole('button', { name: 'Draft with Claude' })).toHaveCount(0)
+  await page.screenshot({ path: shot('breakdown-doc'), animations: 'disabled' })
   await again.getByRole('button', { name: 'Cancel' }).click()
 
   // Clean up.

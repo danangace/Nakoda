@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { MAX_SUBTASKS, PARENT_TYPES_FOR_SUBTASKS, checkRow, findSimilar, normalizeTitle, parseSubtaskList } from '../../../shared/breakdown'
+import { MAX_SUBTASKS, PARENT_TYPES_FOR_SUBTASKS, checkRow, extractBreakdown, findSimilar, formatSubtaskList, normalizeTitle, parseSubtaskList } from '../../../shared/breakdown'
 import type { Connector, SubtaskDraft, WriteOutcome, WritePreview } from '../../../shared/connectors'
 import type { DocNodeT } from '../../../shared/schemas'
 import { type BreakdownSource, type DocFile, type SpecCheck, api } from '../../api/nakoda'
@@ -15,7 +15,8 @@ import { Modal } from '../ui/Modal'
 import { useConfirm } from '../ui/confirm'
 
 type Step = 'source' | 'rows' | 'preview' | 'sent'
-type Source = 'doc' | 'text'
+/** breakdown = a document that already holds the list (made with the skill); spec = raw spec, Claude drafts the list; text = you write it. */
+type Source = 'breakdown' | 'spec' | 'text'
 type Row = { id: number; title: string; points: string }
 type Parent = { title: string; type: string; status: string }
 
@@ -35,7 +36,7 @@ export function BreakdownDialog({ connector, ticketKey, onClose, onDone }: { con
   const [parent, setParent] = useState<Parent | null>(null)
   const [existing, setExisting] = useState<{ key: string; title: string }[]>([])
   const [me, setMe] = useState<{ id: number; name: string } | null>(null)
-  const [source, setSource] = useState<Source>('doc')
+  const [source, setSource] = useState<Source>('breakdown')
   const [tree, setTree] = useState<string[] | null>(null)
   const [filter, setFilter] = useState('')
   const [doc, setDoc] = useState<DocFile | null>(null)
@@ -55,6 +56,7 @@ export function BreakdownDialog({ connector, ticketKey, onClose, onDone }: { con
   const [drafting, setDrafting] = useState(false)
   const [drafted, setDrafted] = useState<string | null>(null)
   const [truncated, setTruncated] = useState(false)
+  const [found, setFound] = useState<{ path: string; count: number } | null>(null)
 
   useEffect(() => {
     let alive = true
@@ -69,7 +71,7 @@ export function BreakdownDialog({ connector, ticketKey, onClose, onDone }: { con
         const before = await api.breakdownSource(connector.id, ticketKey).catch(() => null)
         if (alive && before) {
           setPrevious(before)
-          void pick(before.docPath)
+          void pick(before.docPath, 'breakdown', true)
         }
       } catch (e) {
         if (alive) setError(errorText(e))
@@ -82,12 +84,17 @@ export function BreakdownDialog({ connector, ticketKey, onClose, onDone }: { con
 
   // The docs list is only needed when a document is the source.
   useEffect(() => {
-    if (source !== 'doc' || tree) return
+    if (source === 'text' || tree) return
     api.docsTree().then(
-      (nodes) => setTree(flatten(nodes)),
+      (nodes) => {
+        const files = flatten(nodes)
+        setTree(files)
+        // A breakdown document usually carries the ticket's key in its name: show those first.
+        if (files.some((p) => p.includes(ticketKey))) setFilter((f) => f || ticketKey)
+      },
       (e: unknown) => setError(errorText(e)),
     )
-  }, [source, tree])
+  }, [source, tree, ticketKey])
 
   const blocked = parent
     ? !(PARENT_TYPES_FOR_SUBTASKS as readonly string[]).includes(parent.type)
@@ -97,16 +104,32 @@ export function BreakdownDialog({ connector, ticketKey, onClose, onDone }: { con
         : null
     : null
 
-  const pick = (path: string) => {
+  /**
+   * Open a document. In "breakdown" mode its list is taken straight into the editor (no Claude); a document with
+   * no list there is probably a spec, so `fallback` moves to the spec tab instead of leaving an empty editor.
+   */
+  const pick = async (path: string, mode: Source = source, fallback = false): Promise<void> => {
     setCheck(null)
-    return Promise.all([api.docsFile(path), api.breakdownSpecCheck(path).catch(() => null)]).then(
-      ([d, c]) => {
-        setDoc(d)
-        setCheck(c)
-        setError(null)
-      },
-      (e: unknown) => setError(errorText(e)),
-    )
+    setFound(null)
+    try {
+      const [d, c] = await Promise.all([api.docsFile(path), api.breakdownSpecCheck(path).catch(() => null)])
+      setDoc(d)
+      setCheck(c)
+      setError(null)
+      if (mode !== 'breakdown') return
+      const list = extractBreakdown(d.body)
+      setFound({ path, count: list.rows.length })
+      if (list.rows.length === 0) {
+        if (fallback) setSource('spec')
+        return
+      }
+      const next = formatSubtaskList(list.rows, list.notes)
+      if (text.trim() && text.trim() !== next && !(await confirm({ title: 'Replace the list with this document’s?', description: 'What you wrote in the list is replaced by the list found in the document.', confirmLabel: 'Replace' }))) return
+      setText(next)
+      setDrafted(null)
+    } catch (e) {
+      setError(errorText(e))
+    }
   }
   const matches = useMemo(() => {
     const q = filter.trim().toLowerCase()
@@ -191,7 +214,7 @@ export function BreakdownDialog({ connector, ticketKey, onClose, onDone }: { con
     setStep('rows')
   }
 
-  const wide = step === 'source' && source === 'doc'
+  const wide = step === 'source' && source !== 'text'
   return (
     <Modal title={`Break down ${ticketKey}`} onClose={onClose} width={wide ? 'max-w-5xl' : 'max-w-2xl'}>
       <div className="space-y-4" data-testid="breakdown">
@@ -207,13 +230,13 @@ export function BreakdownDialog({ connector, ticketKey, onClose, onDone }: { con
         {step === 'source' && parent && !blocked && (
           <>
             <div role="tablist" className="flex gap-1 text-sm">
-              {([['doc', 'From a document'], ['text', 'Write a list']] as const).map(([value, label]) => (
+              {([['breakdown', 'From a breakdown document'], ['spec', 'From a spec'], ['text', 'Write a list']] as const).map(([value, label]) => (
                 <button
                   key={value}
                   type="button"
                   role="tab"
                   aria-selected={source === value}
-                  onClick={() => setSource(value)}
+                  onClick={() => (setSource(value), setFound(null), void (doc && value === 'breakdown' ? pick(doc.path, 'breakdown') : undefined))}
                   className={source === value ? 'rounded-md bg-secondary px-3 py-1 text-foreground' : 'rounded-md px-3 py-1 text-muted-foreground hover:text-foreground'}
                 >
                   {label}
@@ -221,7 +244,7 @@ export function BreakdownDialog({ connector, ticketKey, onClose, onDone }: { con
               ))}
             </div>
             <div className={cn('grid gap-4', wide && 'grid-cols-[1fr_22rem]')}>
-              {source === 'doc' && (
+              {source !== 'text' && (
                 <div className="min-w-0 space-y-2">
                   <Input aria-label="Find a document" placeholder="Find a document…" value={filter} onChange={(e) => setFilter(e.target.value)} />
                   <ul className="max-h-32 space-y-0.5 overflow-y-auto rounded-md border border-border p-1 text-sm" data-testid="doc-list">
@@ -241,9 +264,20 @@ export function BreakdownDialog({ connector, ticketKey, onClose, onDone }: { con
                     </Notice>
                   )}
                   {previous && doc && doc.path !== previous.docPath && (
-                    <Notice tone="info">This ticket was broken down from {previous.docPath} before. One document stands for one ticket: check you mean this one.</Notice>
+                    <Notice tone="info">
+                      Last time this ticket was broken down from {previous.docPath} ({previous.created} subtask{previous.created === 1 ? '' : 's'} created). Subtasks that already exist are flagged in the table.
+                    </Notice>
                   )}
-                  {check && (
+                  {source === 'breakdown' && found && (
+                    <div data-testid="breakdown-found">
+                      {found.count > 0 ? (
+                        <Notice tone="ok">Found {found.count} subtask{found.count === 1 ? '' : 's'} in this document. They are in the list; fix them there.</Notice>
+                      ) : (
+                        <Notice tone="error">No [FE]/[BE] list in this document. If it is a spec, use “From a spec” and let Claude draft one.</Notice>
+                      )}
+                    </div>
+                  )}
+                  {source === 'spec' && check && (
                     <div data-testid="spec-check">
                       {check.questionsPath === null ? (
                         <Notice tone="info">No Open Questions file next to this document. Be sure its questions are answered.</Notice>
@@ -263,7 +297,7 @@ export function BreakdownDialog({ connector, ticketKey, onClose, onDone }: { con
                 </div>
               )}
               <div className="space-y-3">
-                {source === 'doc' && (
+                {source === 'spec' && (
                   <div className="space-y-1.5 rounded-md border border-border p-2.5">
                     <Input aria-label="Instruction for Claude" placeholder="Optional: e.g. the API already exists, no [BE] work" value={instruction} onChange={(e) => setInstruction(e.target.value)} />
                     <Button data-testid="draft-with-claude" disabled={!doc || drafting} onClick={() => void draftWithClaude()}>

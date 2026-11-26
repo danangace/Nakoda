@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { MAX_TITLE, checkRow, findSimilar, normalizeTitle, parseSubtaskList } from './breakdown'
+import { MAX_TITLE, checkRow, extractBreakdown, findSimilar, formatSubtaskList, normalizeTitle, parseSubtaskList } from './breakdown'
 
 describe('parseSubtaskList', () => {
   it('reads one subtask per line, bullets or not, with trailing story points', () => {
@@ -66,5 +66,51 @@ describe('findSimilar', () => {
   it('does not treat a [FE] and a [BE] as the same work, even when the words overlap', () => {
     expect(findSimilar('[BE] Invoice list with search', existing)).toBeNull()
     expect(findSimilar('Invoice list with search', existing)?.key).toBe('T2-1')
+  })
+})
+
+describe('extractBreakdown', () => {
+  const DOC = `---
+helix: T2-3252
+spec: "[[FE-01 Invoices]]"
+- [FE] not a list item of the document: it is frontmatter
+---
+# Breakdown T2-3252
+
+Some words about why. A line that mentions [FE] in prose is not a subtask.
+
+## Subtasks
+
+- [BE] Add paged invoice list endpoint (2)
+- [fe] Show invoice list with search (3 sp)
+  - nested detail that is not tagged
+1. [FE] Empty and error states (1)
+* [ ] [FE] Export dialog (3)
+- Plain bullet without a layer
+> Note: AC-4 has no contract
+
+Note: ask the TPM
+`
+
+  it('takes only the tagged list items and the Notes, from a document with prose and frontmatter around them', () => {
+    const { rows, notes } = extractBreakdown(DOC)
+    expect(rows).toEqual([
+      { title: '[BE] Add paged invoice list endpoint', storyPoint: 2 },
+      { title: '[FE] Show invoice list with search', storyPoint: 3 },
+      { title: '[FE] Empty and error states', storyPoint: 1 },
+      { title: '[FE] Export dialog', storyPoint: 3 },
+    ])
+    expect(notes).toEqual(['AC-4 has no contract', 'ask the TPM'])
+  })
+
+  it('finds nothing in a spec that has no breakdown, so the person is told rather than given junk rows', () => {
+    expect(extractBreakdown('# FE-01\n\nAC-1: the list shows invoices.\n\n- A bullet\n- [x] A checklist item\n')).toEqual({ rows: [], notes: [] })
+    expect(extractBreakdown('')).toEqual({ rows: [], notes: [] })
+  })
+
+  it('reads a list inside a code fence too, and gives the same list back through formatSubtaskList', () => {
+    const { rows, notes } = extractBreakdown('Pasted from the skill:\n```\n- [BE] One (2)\n- [FE] Two\nNote: gap\n```')
+    expect(formatSubtaskList(rows, notes)).toBe('- [BE] One (2)\n- [FE] Two\nNote: gap')
+    expect(parseSubtaskList(formatSubtaskList(rows, notes))).toEqual({ rows, notes })
   })
 })

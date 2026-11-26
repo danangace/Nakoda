@@ -34,6 +34,8 @@ writeFileSync(join(vault, 'notes', 'Second note.md'), '# Second note\n\nHello fr
 // A spec with its Open Questions next to it: one answered, one not.
 mkdirSync(join(vault, 'spec'), { recursive: true })
 writeFileSync(join(vault, 'spec', 'FE-01 Invoices.md'), '# FE-01 Invoices\n\nAC-1: the list shows invoices.\nAC-4: export to CSV.\n')
+// The same story, already broken down with the skill: a document that holds the list.
+writeFileSync(join(vault, 'spec', 'Breakdown T2-3252.md'), '---\nhelix: T2-3252\n---\n# Breakdown T2-3252\n\nSplit by layer; the export waits for a contract.\n\n- [BE] Add paged invoice list endpoint (2)\n- [FE] Show invoice list with search (3)\n- [FE] Export dialog (3)\nNote: AC-4 has no API contract\n')
 writeFileSync(join(vault, 'spec', 'Open Questions.md'), '# Open Questions\n\n| OQ | Topic | Owner | Blocks coding | Status |\n|---|---|---|---|---|\n| OQ-01 | Cards | PM | no | **decided** 2026-11-07 |\n| OQ-02 | Export format | PM | yes | open |\n')
 
 const db = openDb(':memory:')
