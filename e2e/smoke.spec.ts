@@ -438,6 +438,26 @@ test('Connect Helix in Settings, then read the External tab (read-only)', async 
   await expect(page.locator('body')).not.toContainText(token)
   await page.screenshot({ path: shot('connectors-helix'), animations: 'disabled' })
 
+  // Changing tickets is opt-in: a connection is read-only until it is given its own write token.
+  const card = page.getByRole('region', { name: 'Helix connector' })
+  await expect(card.getByTestId('write-state')).toHaveText('read-only')
+  const writeToken = `sidpjm_${'b'.repeat(64)}`
+  await card.getByRole('button', { name: 'Edit' }).click()
+  await page.getByLabel('Paste a write token').check()
+  await page.getByLabel('Write token', { exact: true }).fill(writeToken)
+  await page.screenshot({ path: shot('connectors-write-token'), animations: 'disabled' })
+  await page.getByRole('button', { name: 'Save connection' }).click()
+  await expect(card.getByTestId('write-state')).toContainText('sidpjm_…bbbb')
+  await expect(page.locator('body')).not.toContainText(writeToken)
+  // It is tested on its own: the fake Helix answers a read-only token, so the missing rights are named.
+  await card.getByRole('button', { name: 'Test write token' }).click()
+  await expect(page.getByTestId('write-test')).toContainText('cannot create')
+  // Dropping it makes the connection read-only again.
+  await card.getByRole('button', { name: 'Edit' }).click()
+  await page.getByLabel('Read-only: Nakoda never changes anything').check()
+  await page.getByRole('button', { name: 'Save connection' }).click()
+  await expect(card.getByTestId('write-state')).toHaveText('read-only')
+
   // External tab: my tickets, defect vs task, link to the source.
   await page.locator('aside').getByRole('button', { name: 'Back to Nakoda' }).click()
   await page.locator('aside').getByRole('link', { name: 'Tasks', exact: true }).click()

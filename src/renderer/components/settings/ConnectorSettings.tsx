@@ -15,19 +15,37 @@ import { cn } from '../../lib/cn'
 const DEFAULT_URL = 'https://project.sesi.id'
 
 type Source = 'paste' | 'env'
-type Draft = { id: string | null; pendingKey: string | null; label: string; baseUrl: string; source: Source; token: string; envName: string; severityMap: string; envMap: string }
+/** What the connection may do besides reading: nothing, keep the write token it has, or set one. */
+type WriteMode = 'none' | 'keep' | 'paste' | 'env'
+type Draft = {
+  id: string | null
+  pendingKey: string | null
+  label: string
+  baseUrl: string
+  source: Source
+  token: string
+  envName: string
+  writeMode: WriteMode
+  writeToken: string
+  writeEnvName: string
+  hadWrite: boolean
+  severityMap: string
+  envMap: string
+}
 
-const blank: Draft = { id: null, pendingKey: null, label: 'Helix', baseUrl: DEFAULT_URL, source: 'paste', token: '', envName: '', severityMap: '', envMap: '' }
+const blank: Draft = { id: null, pendingKey: null, label: 'Helix', baseUrl: DEFAULT_URL, source: 'paste', token: '', envName: '', writeMode: 'none', writeToken: '', writeEnvName: '', hadWrite: false, severityMap: '', envMap: '' }
 
-function ConnectorForm({ draft, envNames, onChange, onSave, onCancel }: {
+function ConnectorForm({ draft, envNames, writeEnvNames, onChange, onSave, onCancel }: {
   draft: Draft
   envNames: string[]
+  writeEnvNames: string[]
   onChange: (d: Draft) => void
   onSave: () => void
   onCancel: () => void
 }) {
   const editing = draft.id !== null
-  const ready = draft.label.trim() && draft.baseUrl.trim() && (draft.source === 'env' ? draft.envName : editing || draft.token.trim())
+  const writeReady = draft.writeMode === 'paste' ? draft.writeToken.trim() : draft.writeMode === 'env' ? draft.writeEnvName : true
+  const ready = draft.label.trim() && draft.baseUrl.trim() && (draft.source === 'env' ? draft.envName : editing || draft.token.trim()) && writeReady
   return (
     <div className="space-y-4">
       <Field label="Label">
@@ -61,6 +79,42 @@ function ConnectorForm({ draft, envNames, onChange, onSave, onCancel }: {
           </Field>
         )}
       </fieldset>
+      <fieldset className="space-y-2">
+        <legend className="text-[13px] font-medium text-muted-foreground">Changing tickets (optional)</legend>
+        <p className="text-xs text-muted-foreground">Needs its own token with the ticket_authoring scope. Nakoda shows exactly what it will send and asks before every change.</p>
+        {draft.hadWrite && (
+          <label className="flex items-center gap-2 text-sm">
+            <input type="radio" name="write-mode" checked={draft.writeMode === 'keep'} onChange={() => onChange({ ...draft, writeMode: 'keep' })} />
+            Keep the saved write token
+          </label>
+        )}
+        <label className="flex items-center gap-2 text-sm">
+          <input type="radio" name="write-mode" checked={draft.writeMode === 'none'} onChange={() => onChange({ ...draft, writeMode: 'none' })} />
+          Read-only: Nakoda never changes anything
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="radio" name="write-mode" checked={draft.writeMode === 'paste'} onChange={() => onChange({ ...draft, writeMode: 'paste' })} />
+          Paste a write token
+        </label>
+        {draft.writeMode === 'paste' && (
+          <Field label="Write token" hint="Saved in ~/.nakoda/secrets.json next to the read token, never shown again, and never given to a chat.">
+            <Input type="password" autoComplete="off" placeholder="sidpjm_…" aria-label="Write token" value={draft.writeToken} onChange={(e) => onChange({ ...draft, writeToken: e.target.value })} />
+          </Field>
+        )}
+        <label className="flex items-center gap-2 text-sm">
+          <input type="radio" name="write-mode" checked={draft.writeMode === 'env'} onChange={() => onChange({ ...draft, writeMode: 'env' })} />
+          Use an existing environment variable
+        </label>
+        {draft.writeMode === 'env' && (
+          <Field label="Write variable" hint="Only the name is saved; the token stays where it is.">
+            {writeEnvNames.length === 0 ? (
+              <Notice tone="info">No SIDPJM_… variables are set in the environment Nakoda runs in.</Notice>
+            ) : (
+              <Select aria-label="Write variable" value={draft.writeEnvName} onValueChange={(v) => onChange({ ...draft, writeEnvName: v })} options={writeEnvNames.map((n) => ({ value: n, label: n }))} placeholder="Choose a variable…" />
+            )}
+          </Field>
+        )}
+      </fieldset>
       {editing && (
         <div className="grid grid-cols-2 gap-3">
           <Field label="Severity mapping" hint="Helix severity=ours (critical, major or minor), one per line. Used when a defect is transferred.">
@@ -83,11 +137,11 @@ function ConnectorForm({ draft, envNames, onChange, onSave, onCancel }: {
   )
 }
 
-function TestReport({ result }: { result: TestResult }) {
+function TestReport({ result, label }: { result: TestResult; label?: string }) {
   return (
-    <div className="space-y-2" data-testid="connection-test">
+    <div className="space-y-2" data-testid={label ? 'write-test' : 'connection-test'}>
       <Notice tone="ok">
-        Connected as {result.owner.name} ({result.owner.username}). Scope: {result.scope}
+        {label ? `${label}: ` : ''}Connected as {result.owner.name} ({result.owner.username}). Scope: {result.scope}
         {result.expiresAt ? `, expires ${result.expiresAt.slice(0, 10)}` : ', no expiry'}.
       </Notice>
       {result.warnings.map((w) => (
@@ -150,6 +204,7 @@ export function ConnectorSettings() {
   const confirm = useConfirm()
   const [connectors, setConnectors] = useState<Connector[] | null>(null)
   const [envNames, setEnvNames] = useState<string[]>([])
+  const [writeEnvNames, setWriteEnvNames] = useState<string[]>([])
   const [draft, setDraft] = useState<Draft | null>(null)
   /** Cards the user added but has not configured yet. They only live on this screen. */
   const [pending, setPending] = useState<string[]>([])
@@ -161,6 +216,7 @@ export function ConnectorSettings() {
   useEffect(() => {
     void load()
     api.connectorEnvVars().then(setEnvNames, () => setEnvNames([]))
+    api.connectorEnvVars(true).then(setWriteEnvNames, () => setWriteEnvNames([]))
   }, [])
 
   const addCard = (platformId: string) => {
@@ -181,6 +237,7 @@ export function ConnectorSettings() {
       baseUrl: draft.baseUrl,
       ...(draft.id ? { mappings: { severity: parseMap(draft.severityMap), environment: parseMap(draft.envMap) } } : {}),
       ...(draft.source === 'paste' ? (draft.token.trim() ? { token: draft.token.trim() } : {}) : { envName: draft.envName }),
+      ...(draft.writeMode === 'paste' ? { writeToken: draft.writeToken.trim() } : draft.writeMode === 'env' ? { writeEnvName: draft.writeEnvName } : draft.writeMode === 'none' && draft.hadWrite ? { clearWrite: true } : {}),
     }
     try {
       const saved = draft.id ? await api.updateConnector(draft.id, input) : await api.createConnector(input)
@@ -207,6 +264,18 @@ export function ConnectorSettings() {
     }
   }
 
+  const testWrite = async (id: string) => {
+    setTesting(`${id}:write`)
+    try {
+      const result = await api.testConnectorWrite(id)
+      setResults((r) => ({ ...r, [`${id}:write`]: result }))
+    } catch (e) {
+      setResults((r) => ({ ...r, [`${id}:write`]: errorText(e) }))
+    } finally {
+      setTesting(null)
+    }
+  }
+
   const remove = async (c: Connector) => {
     if (!(await confirm({ title: `Remove ${c.label}?`, description: 'Its saved token is deleted from this computer. Tickets already moved into Nakoda stay.', confirmLabel: 'Remove', destructive: true }))) return
     try {
@@ -218,7 +287,7 @@ export function ConnectorSettings() {
   }
 
   const edit = (c: Connector) =>
-    setDraft({ id: c.id, pendingKey: null, label: c.label, baseUrl: c.baseUrl, source: c.tokenSource.kind === 'env' ? 'env' : 'paste', token: '', envName: c.tokenSource.kind === 'env' ? c.tokenSource.name : '', severityMap: formatMap(c.mappings.severity), envMap: formatMap(c.mappings.environment) })
+    setDraft({ id: c.id, pendingKey: null, label: c.label, baseUrl: c.baseUrl, source: c.tokenSource.kind === 'env' ? 'env' : 'paste', token: '', envName: c.tokenSource.kind === 'env' ? c.tokenSource.name : '', writeMode: c.writeTokenSource ? 'keep' : 'none', writeToken: '', writeEnvName: '', hadWrite: Boolean(c.writeTokenSource), severityMap: formatMap(c.mappings.severity), envMap: formatMap(c.mappings.environment) })
 
   const options = PLATFORMS.map((p) => ({
     value: p.id,
@@ -235,7 +304,7 @@ export function ConnectorSettings() {
   return (
     <section className="space-y-3">
       <div className="flex items-start justify-between gap-3">
-        <p className="text-sm text-muted-foreground">Connect outside task systems to bring tickets into Nakoda. Nakoda only reads.</p>
+        <p className="text-sm text-muted-foreground">Connect outside task systems to bring tickets into Nakoda. Nakoda reads by default; changing tickets needs a separate write token, and it asks before every change.</p>
         <div className="w-44 shrink-0">
           <Select aria-label="Add connector" value="" onValueChange={addCard} options={options} placeholder="Add connector…" />
         </div>
@@ -274,6 +343,11 @@ export function ConnectorSettings() {
                 <Button disabled={testing === c.id} onClick={() => void test(c.id)}>
                   {testing === c.id ? 'Testing…' : 'Test connection'}
                 </Button>
+                {c.writeTokenSource && (
+                  <Button disabled={testing === `${c.id}:write`} onClick={() => void testWrite(c.id)}>
+                    {testing === `${c.id}:write` ? 'Testing…' : 'Test write token'}
+                  </Button>
+                )}
                 <Button variant="ghost" onClick={() => edit(c)}>
                   Edit
                 </Button>
@@ -289,17 +363,27 @@ export function ConnectorSettings() {
                 {c.tokenSource.kind === 'env' ? `from ${c.tokenSource.name}` : 'saved in ~/.nakoda/secrets.json'}
                 {c.tokenHint ? ` (${c.tokenHint})` : ' (missing)'}
               </dd>
+              <dt className="text-muted-foreground">Changing tickets</dt>
+              <dd className="font-mono text-xs" data-testid="write-state">
+                {c.writeTokenSource
+                  ? `${c.writeTokenSource.kind === 'env' ? `from ${c.writeTokenSource.name}` : 'saved in ~/.nakoda/secrets.json'}${c.writeTokenHint ? ` (${c.writeTokenHint})` : ' (missing)'}`
+                  : 'read-only'}
+              </dd>
               <dt className="text-muted-foreground">Last checked</dt>
               <dd className="text-xs">{c.lastCheckedAt ? new Date(c.lastCheckedAt).toLocaleString() : 'never'}</dd>
             </dl>
             {typeof result === 'string' ? <Notice tone="error">{result}</Notice> : result && <TestReport result={result} />}
+            {(() => {
+              const w = results[`${c.id}:write`]
+              return typeof w === 'string' ? <Notice tone="error">{w}</Notice> : w && <TestReport result={w} label="Write token" />
+            })()}
           </PlatformCard>
         )
       })}
       {draft && (
         <Modal title={draft.id ? 'Edit Helix connection' : 'Configure Helix'} onClose={closeForm} width="max-w-xl">
           {error && <Notice tone="error">{error}</Notice>}
-          <ConnectorForm draft={draft} envNames={envNames} onChange={setDraft} onSave={() => void save()} onCancel={closeForm} />
+          <ConnectorForm draft={draft} envNames={envNames} writeEnvNames={writeEnvNames} onChange={setDraft} onSave={() => void save()} onCancel={closeForm} />
         </Modal>
       )}
     </section>

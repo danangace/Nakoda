@@ -1,4 +1,4 @@
-import { type ExternalPage, type ExternalQuery, type ExternalTicket, HELIX_STATUSES, type Iteration, type TestResult } from '../../shared/connectors'
+import { type AllowedTransitions, type ExternalPage, type ExternalQuery, type ExternalTicket, HELIX_STATUSES, type Iteration, type SubtaskDraft, type TestResult } from '../../shared/connectors'
 import { UserError } from '../errors'
 import { redactTokens } from './secrets'
 import { tiptapToMarkdown } from './tiptap'
@@ -102,15 +102,21 @@ export class HelixClient {
   }
 
   /** Who the token belongs to, its scope and expiry. Warns about a token that can write or is about to expire. */
-  async test(now = new Date()): Promise<TestResult> {
+  async test(now = new Date(), mode: 'read' | 'write' = 'read'): Promise<TestResult> {
     const data = asRecord((await this.get('/api/auth/me')).data)
     const token = asRecord(data.token)
     const scope = str(token.scope) ?? 'unknown'
     const capabilities = Array.isArray(token.capabilities) ? token.capabilities.filter((c): c is string => typeof c === 'string') : []
     const expiresAt = str(token.expires_at)
     const warnings: string[] = []
-    if (scope !== 'read_only') warnings.push(`This token can do more than read (scope ${scope}). A read_only token is safer; Nakoda only reads.`)
-    if (!capabilities.includes('read')) warnings.push('This token cannot read tickets.')
+    if (mode === 'read') {
+      if (scope !== 'read_only') warnings.push(`This token can do more than read (scope ${scope}). Use a read_only token here; changing tickets has its own token.`)
+      if (!capabilities.includes('read')) warnings.push('This token cannot read tickets.')
+    } else {
+      for (const need of ['read', 'create', 'write']) {
+        if (!capabilities.includes(need)) warnings.push(`This token cannot ${need === 'read' ? 'read tickets' : need === 'create' ? 'create tickets, subtasks or comments' : 'change tickets or move their status'} (it lacks "${need}"). Create one with the ticket_authoring scope.`)
+      }
+    }
     if (expiresAt) {
       const days = Math.floor((new Date(expiresAt).getTime() - now.getTime()) / 86_400_000)
       if (days < 0) warnings.push('This token has expired. Create a new one.')
@@ -227,6 +233,57 @@ export class HelixClient {
     return mine
   }
 
+  /**
+   * One change. Never retried (a retry could do it twice) and never followed through a redirect.
+   * Returns Helix's whole answer; `warnings` ride along in it.
+   */
+  private async write(method: 'POST' | 'PATCH', path: string, body: unknown): Promise<Record<string, unknown>> {
+    let res: Response
+    try {
+      res = await this.doFetch(`${this.base}${path}`, {
+        method,
+        redirect: 'manual',
+        headers: { Authorization: `Bearer ${this.token}`, Accept: 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(this.timeoutMs),
+      })
+    } catch {
+      throw new UserError('helix_unreachable', `Cannot reach Helix at ${this.base}. The change may not have been saved: look at the ticket before trying again.`)
+    }
+    if (res.status >= 300 && res.status < 400) throw new UserError('helix_redirect', `Helix at ${this.base} redirected the request. Check the address.`)
+    const parsed = asRecord(await res.json().catch(() => ({})))
+    if (res.ok) return parsed
+    throw writeError(res.status, parsed)
+  }
+
+  /** Where each ticket type may go from each status on a board (the board only scopes the read). */
+  async allowedTransitions(boardId: number): Promise<AllowedTransitions> {
+    if (!Number.isInteger(boardId)) throw new UserError('invalid_board', 'Pick a board first')
+    const raw = asRecord(asRecord((await this.get(`/api/boards/${boardId}/allowed-transitions`)).data).transitions)
+    return Object.fromEntries(
+      Object.entries(raw).map(([type, byStatus]) => [type, Object.fromEntries(Object.entries(asRecord(byStatus)).map(([from, to]) => [from, (Array.isArray(to) ? to : []).filter((s): s is string => typeof s === 'string')]))]),
+    )
+  }
+
+  /** Move a ticket. A `comment` is stored in the same step, so a refused move leaves no note. */
+  async moveStatus(key: string, status: string, comment?: string): Promise<{ status: string; warnings: string[] }> {
+    const body = { status, ...(comment?.trim() ? { comment: comment.trim() } : {}) }
+    const answer = await this.write('PATCH', statusPath(key), body)
+    return { status: str(asRecord(answer.data).status) ?? status, warnings: warningsOf(answer) }
+  }
+
+  async addComment(key: string, content: string): Promise<{ warnings: string[] }> {
+    return { warnings: warningsOf(await this.write('POST', commentPath(key), { content })) }
+  }
+
+  /** A subtask under an existing ticket. Helix works out the iteration (the parent's) and the due date. */
+  async createSubtask(parentKey: string, draft: SubtaskDraft): Promise<{ key: string; warnings: string[] }> {
+    const answer = await this.write('POST', childrenPath(parentKey), subtaskBody(draft))
+    const key = str(asRecord(answer.data).ticket_key)
+    if (!key) throw new UserError('helix_error', 'Helix answered without a ticket key. Check the parent before trying again.')
+    return { key, warnings: warningsOf(answer) }
+  }
+
   /** The full ticket, always read fresh (a list row has no rich text). */
   async ticket(key: string): Promise<HelixTicket> {
     if (!/^[A-Za-z0-9_-]+$/.test(key)) throw new UserError('invalid_ticket_key', 'That is not a ticket key')
@@ -319,5 +376,61 @@ export function mapTicket(raw: unknown, url: string): HelixTicket {
     prdLinks: [...field('prd_links'), ...urlsOf(t.prd_link)],
     figmaLinks: [...field('figma_links'), ...urlsOf(t.figma_link)],
     url,
+  }
+}
+
+const keyPart = (key: string): string => {
+  if (!/^[A-Za-z0-9_-]+$/.test(key)) throw new UserError('invalid_ticket_key', 'That is not a ticket key')
+  return encodeURIComponent(key)
+}
+export const statusPath = (key: string) => `/api/tickets/${keyPart(key)}/status`
+export const commentPath = (key: string) => `/api/tickets/${keyPart(key)}/comments`
+export const childrenPath = (key: string) => `/api/tickets/${keyPart(key)}/children`
+
+/** What a subtask sends. A planned start goes as the midnight (UTC) Helix expects. */
+export function subtaskBody(d: SubtaskDraft): Record<string, unknown> {
+  return {
+    title: d.title,
+    type: 'subtask',
+    ...(d.storyPoint ? { story_point: d.storyPoint } : {}),
+    ...(d.estHours ? { est_hours: d.estHours } : {}),
+    ...(d.assigneeId ? { assignee_id: d.assigneeId } : {}),
+    ...(d.targetStartDate ? { target_start_date: `${d.targetStartDate}T00:00:00Z` } : {}),
+  }
+}
+
+const warningsOf = (answer: Record<string, unknown>): string[] => (Array.isArray(answer.warnings) ? answer.warnings.filter((w): w is string => typeof w === 'string') : [])
+
+/** A refusal of a change, in words a person can act on. Branches on Helix's `code`, never on the sentence. */
+export function writeError(status: number, body: Record<string, unknown>): UserError {
+  const code = str(body.code) ?? str(asRecord(body.error).code) ?? ''
+  const details = asRecord(body.details)
+  const sentence = redactTokens(str(body.error) ?? '')
+  if (status === 401) return new UserError('helix_token', 'The Helix write token is missing, wrong or expired. Create a new one.')
+  switch (code) {
+    case 'insufficient_scope':
+      return new UserError('helix_scope', `This token cannot do that: it needs "${str(details.required_capability) ?? 'more access'}". Create one with the ticket_authoring scope.`)
+    case 'session_required':
+      return new UserError('helix_human_only', str(details.field) === 'status' ? 'Helix lets only a person move a ticket out of done.' : 'Helix lets only a person do that, in the browser.')
+    case 'insufficient_role':
+      return new UserError('helix_role', 'Your Helix role does not allow that.')
+    case 'ticket_archived':
+      return new UserError('helix_archived', 'That ticket is archived.')
+    case 'ticket_not_found':
+      return new UserError('helix_not_found', 'Ticket not found (or not visible to this token).', 404)
+    case 'write_conflict':
+      return new UserError('helix_conflict', 'Someone else changed it at the same moment. Nothing was saved: read it again and retry.', 409)
+    case 'invalid_transition': {
+      const allowed = Array.isArray(details.allowed) ? details.allowed.filter((s): s is string => typeof s === 'string') : []
+      return new UserError('helix_invalid_transition', `Helix does not allow that move${allowed.length ? `. From here: ${allowed.join(', ')}` : ' from the current status'}.`)
+    }
+    case 'missing_required_fields': {
+      const fields = Array.isArray(details.fields) ? details.fields.join(', ') : ''
+      return new UserError('helix_missing_fields', `Helix needs more first${fields ? `: ${fields}` : ''}.`)
+    }
+    case 'rate_limited':
+      return new UserError('helix_rate_limited', 'Helix is rate limiting changes (comments: 30 a minute). Wait a minute.')
+    default:
+      return new UserError(`helix_${code || 'error'}`, sentence || `Helix answered ${status}${code ? ` (${code})` : ''}.`)
   }
 }

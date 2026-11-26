@@ -15,6 +15,9 @@ export const Connector = z.object({
   tokenSource: TokenSource,
   /** `sidpjm_…a1b2`: enough to recognise the token, useless to use it. Null when no token is available. */
   tokenHint: z.string().nullable(),
+  /** The separate token that may change tickets; null = this connection is read-only. Where it comes from, never the token. */
+  writeTokenSource: TokenSource.nullable().default(null),
+  writeTokenHint: z.string().nullable().default(null),
   lastCheckedAt: z.string().nullable(),
   /** How Helix words map to ours on transfer (editable). */
   mappings: z.object({ severity: z.record(z.string(), z.string()), environment: z.record(z.string(), z.string()) }),
@@ -28,6 +31,10 @@ export const ConnectorInput = z.object({
   baseUrl: z.string().trim().min(1, 'Enter the Helix address'),
   token: z.string().trim().optional(),
   envName: z.string().trim().optional(),
+  /** The optional write token: pasted, or the name of a variable. At most one; `clearWrite` removes it. */
+  writeToken: z.string().trim().optional(),
+  writeEnvName: z.string().trim().optional(),
+  clearWrite: z.boolean().optional(),
   mappings: z.object({ severity: z.record(z.string(), z.string()), environment: z.record(z.string(), z.string()) }).optional(),
 })
 export type ConnectorInput = z.infer<typeof ConnectorInput>
@@ -110,3 +117,60 @@ export function statusCategory(t: { status: string; statusCategory?: string | nu
 }
 
 export type ExternalQuery = { page?: number; boardId?: number; iterationId?: number; mine?: boolean; statuses?: string[] }
+
+
+/** A subtask to add under an existing ticket (its parent comes from the action). */
+export const SubtaskDraft = z.object({
+  title: z.string().trim().min(1, 'Every subtask needs a title').max(500, 'A title holds at most 500 characters'),
+  storyPoint: z.number().int().positive().max(100).optional(),
+  estHours: z.number().positive().max(1000).optional(),
+  assigneeId: z.number().int().positive().optional(),
+  /** `YYYY-MM-DD`: the planned start. Helix records the real start itself. */
+  targetStartDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD').optional(),
+})
+export type SubtaskDraft = z.infer<typeof SubtaskDraft>
+
+const ticketKey = z.string().regex(/^[A-Za-z0-9_-]+$/, 'That is not a ticket key')
+
+/** The three things Nakoda may change in Helix. Each is previewed, then confirmed. */
+export const HelixWrite = z.discriminatedUnion('action', [
+  z.object({ action: z.literal('status'), key: ticketKey, status: z.string().regex(/^[a-z_]+$/, 'That is not a status'), comment: z.string().max(10_000).optional() }),
+  z.object({ action: z.literal('comment'), key: ticketKey, content: z.string().trim().min(1, 'Write a comment first').max(10_000) }),
+  z.object({ action: z.literal('subtasks'), parentKey: ticketKey, items: z.array(SubtaskDraft).min(1, 'Add at least one subtask').max(30, 'At most 30 subtasks at a time') }),
+])
+export type HelixWrite = z.infer<typeof HelixWrite>
+
+/** Exactly what would be sent, so the preview and the call cannot drift apart. */
+export const WritePreview = z.object({
+  summary: z.string(),
+  requests: z.array(z.object({ method: z.enum(['POST', 'PATCH']), path: z.string(), body: z.record(z.string(), z.unknown()) })),
+  /** Side effects worth a second look: an email goes out, a change cannot be taken back. */
+  notes: z.array(z.string()),
+})
+export type WritePreview = z.infer<typeof WritePreview>
+
+export const WriteOutcome = z.object({
+  /** Everything that was asked is done. */
+  ok: z.boolean(),
+  /** What Helix accepted: the ticket key, and the title for a subtask. */
+  done: z.array(z.object({ key: z.string(), title: z.string().optional() })),
+  /** The first thing that failed; later items were not tried. */
+  failure: z.object({ code: z.string(), message: z.string(), title: z.string().optional() }).nullable(),
+  warnings: z.array(z.string()),
+})
+export type WriteOutcome = z.infer<typeof WriteOutcome>
+
+export const WriteLogEntry = z.object({
+  id: z.string(),
+  at: z.string(),
+  action: z.enum(['status', 'comment', 'subtask']),
+  ticketKey: z.string(),
+  summary: z.string(),
+  ok: z.boolean(),
+  errorCode: z.string().nullable(),
+})
+export type WriteLogEntry = z.infer<typeof WriteLogEntry>
+
+/** Helix's `allowed-transitions`: ticket type → status → statuses it may move to. */
+export const AllowedTransitions = z.record(z.string(), z.record(z.string(), z.array(z.string())))
+export type AllowedTransitions = z.infer<typeof AllowedTransitions>

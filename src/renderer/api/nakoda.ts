@@ -27,8 +27,12 @@ import {
   ExternalPage,
   ExternalTicket,
   type ExternalQuery,
+  type HelixWrite,
   Iteration,
   TestResult,
+  WriteLogEntry,
+  WriteOutcome,
+  WritePreview,
 } from '../../shared/connectors'
 import { request } from './http-client'
 
@@ -128,11 +132,16 @@ export const api = {
   assignTask: (id: string, workspaceId: string) => request('POST', `/api/tasks/${id}/assign`, Task, { workspaceId }),
   unassignTask: (id: string) => request('POST', `/api/tasks/${id}/unassign`, Task),
   listConnectors: () => request('GET', '/api/connectors', z.array(Connector)),
-  connectorEnvVars: () => request('GET', '/api/connectors/env-vars', z.array(z.string())),
+  connectorEnvVars: (forWrite = false) => request('GET', `/api/connectors/env-vars${forWrite ? '?for=write' : ''}`, z.array(z.string())),
   createConnector: (input: ConnectorInput) => request('POST', '/api/connectors', Connector, input),
   updateConnector: (id: string, input: ConnectorInput) => request('PATCH', `/api/connectors/${id}`, Connector, input),
   removeConnector: (id: string) => request('DELETE', `/api/connectors/${id}`, Ok),
   testConnector: (id: string) => request('POST', `/api/connectors/${id}/test`, TestResult),
+  testConnectorWrite: (id: string) => request('POST', `/api/connectors/${id}/test-write`, TestResult),
+  previewHelixWrite: (id: string, action: HelixWrite) => request('POST', `/api/connectors/${id}/writes/preview`, WritePreview, action),
+  /** Only after the person has seen the preview and said yes. */
+  applyHelixWrite: (id: string, action: HelixWrite) => request('POST', `/api/connectors/${id}/writes`, WriteOutcome, { ...action, confirmed: true }),
+  helixWrites: (id: string) => request('GET', `/api/connectors/${id}/writes`, z.array(WriteLogEntry)),
   ticketChildren: (id: string, key: string) => request('GET', `/api/connectors/${id}/tickets/${encodeURIComponent(key)}/children`, z.array(ExternalTicket)),
   mySubtasks: (id: string, q: { boardId?: number; iterationId: number }, refresh = false) => {
     const params = new URLSearchParams({ iterationId: String(q.iterationId) })

@@ -5,9 +5,12 @@ import { nakodaHome } from '../config'
 
 /**
  * Tokens live in `~/.nakoda/secrets.json` (mode 600), never in the database (that file is 644) and
- * never in anything sent to the browser. Shape: `{ "connections": { "<id>": { "token": "…" } } }`.
+ * never in anything sent to the browser. Shape: `{ "connections": { "<id>": { "token": "…", "writeToken": "…" } } }`;
+ * `token` reads, `writeToken` (optional) is the separate one that may change tickets.
  */
-const SecretsFile = z.object({ connections: z.record(z.string(), z.object({ token: z.string() })).default({}) })
+const Entry = z.object({ token: z.string().optional(), writeToken: z.string().optional() })
+type Entry = z.infer<typeof Entry>
+const SecretsFile = z.object({ connections: z.record(z.string(), Entry).default({}) })
 type Secrets = z.infer<typeof SecretsFile>
 
 export class SecretStore {
@@ -41,17 +44,42 @@ export class SecretStore {
     return this.read().connections[connectionId]?.token ?? null
   }
 
-  setToken(connectionId: string, token: string): void {
+  getWriteToken(connectionId: string): string | null {
+    return this.read().connections[connectionId]?.writeToken ?? null
+  }
+
+  private change(connectionId: string, edit: (entry: Entry) => void): void {
     const secrets = this.read()
-    secrets.connections[connectionId] = { token }
+    const entry = { ...secrets.connections[connectionId] }
+    edit(entry)
+    if (entry.token === undefined && entry.writeToken === undefined) delete secrets.connections[connectionId]
+    else secrets.connections[connectionId] = entry
     this.write(secrets)
   }
 
+  setToken(connectionId: string, token: string): void {
+    this.change(connectionId, (e) => void (e.token = token))
+  }
+
+  setWriteToken(connectionId: string, token: string): void {
+    this.change(connectionId, (e) => void (e.writeToken = token))
+  }
+
+  /** Drops the read token only; a write token on the same connection stays. */
+  deleteReadToken(connectionId: string): void {
+    this.change(connectionId, (e) => void delete e.token)
+  }
+
+  deleteWriteToken(connectionId: string): void {
+    this.change(connectionId, (e) => void delete e.writeToken)
+  }
+
+  /** Everything saved for the connection (it is being removed). */
   deleteToken(connectionId: string): void {
-    const secrets = this.read()
-    if (!(connectionId in secrets.connections)) return
-    delete secrets.connections[connectionId]
-    this.write(secrets)
+    this.change(connectionId, (e) => {
+      delete e.token
+      delete e.writeToken
+    })
   }
 }
 

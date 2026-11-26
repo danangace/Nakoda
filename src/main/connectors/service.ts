@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { z } from 'zod/v4'
-import { type Connector, ConnectorInput, type ExternalPage, type ExternalTicket, type ExternalQuery, type TestResult, TokenSource } from '../../shared/connectors'
+import { type AllowedTransitions, type Connector, ConnectorInput, type ExternalPage, type ExternalTicket, type ExternalQuery, HelixWrite, type TestResult, TokenSource, type WriteLogEntry, type WriteOutcome, type WritePreview } from '../../shared/connectors'
 import { UserError } from '../errors'
 import { nowIso } from '../paths'
 import type { Db } from '../sqlite/db'
@@ -9,12 +9,16 @@ import type { Task } from '../../shared/tasks'
 import { createTask } from '../tasks/service'
 import { type SecretStore, tokenHint } from './secrets'
 import { DEFAULT_MAPPINGS, toTaskInput, withParent } from './transfer'
+import { buildPreview, listWrites, logWrite } from './writes'
 
 const KEY = 'connectors'
 const STORED_TOKEN = /^sidpjm_[a-f0-9]{64}$/
 /** Only Helix variables may be read from the environment, so a connection cannot be pointed at, say, an AWS key. */
 const ENV_NAME = /^SIDPJM_[A-Z0-9_]+$/
-/** Nakoda only reads; the author token is never used by it (and is kept out of chats). */
+/**
+ * The token that can write tickets. It may be the connection's *write* source, never its read
+ * source, and it is still kept out of every chat's environment (see claudeEnv).
+ */
 export const AUTHOR_TOKEN_VAR = 'SIDPJM_PAT_AUTHOR_TICKET'
 
 const Row = z.object({
@@ -23,6 +27,8 @@ const Row = z.object({
   label: z.string(),
   baseUrl: z.string(),
   tokenSource: TokenSource,
+  /** The separate token that may change tickets. Absent = read-only connection. */
+  writeTokenSource: TokenSource.nullable().optional(),
   lastCheckedAt: z.string().nullable(),
   /** How Helix words map to ours when a ticket is transferred; the user can edit them. */
   mappings: z.object({ severity: z.record(z.string(), z.string()), environment: z.record(z.string(), z.string()) }).optional(),
@@ -71,9 +77,16 @@ export class ConnectorService {
     return row.tokenSource.kind === 'stored' ? this.secrets.getToken(row.id) : (this.env[row.tokenSource.name] ?? null)
   }
 
+  private writeToken(row: Row): string | null {
+    const source = row.writeTokenSource
+    if (!source) return null
+    return source.kind === 'stored' ? this.secrets.getWriteToken(row.id) : (this.env[source.name] ?? null)
+  }
+
   private view(row: Row): Connector {
     const token = this.token(row)
-    return { ...row, mappings: row.mappings ?? DEFAULT_MAPPINGS, tokenHint: token ? tokenHint(token) : null }
+    const write = this.writeToken(row)
+    return { ...row, mappings: row.mappings ?? DEFAULT_MAPPINGS, tokenHint: token ? tokenHint(token) : null, writeTokenSource: row.writeTokenSource ?? null, writeTokenHint: write ? tokenHint(write) : null }
   }
 
   list(): Connector[] {
@@ -101,11 +114,41 @@ export class ConnectorService {
         throw new UserError('invalid_env_name', `Use a read-token variable named SIDPJM_… (not ${AUTHOR_TOKEN_VAR})`)
       }
       if (!this.env[envName]) throw new UserError('env_missing', `${envName} is not set in the environment Nakoda runs in`)
-      this.secrets.deleteToken(id)
+      this.secrets.deleteReadToken(id)
       return { kind: 'env', name: envName }
     }
     if (current) return current.tokenSource
     throw new UserError('token_required', 'Paste a read-only token or pick an existing variable')
+  }
+
+  /** Names (never values) a *write* source may use. Unlike the read list this includes the author token. */
+  writeEnvNames(): string[] {
+    return Object.keys(this.env)
+      .filter((k) => ENV_NAME.test(k) && this.env[k])
+      .toSorted()
+  }
+
+  /** The optional write token: pasted, or a variable by name. Empty input keeps what the connection has. */
+  private writeSource(input: ConnectorInput, id: string, current?: Row): TokenSource | null {
+    const token = input.writeToken?.trim()
+    const envName = input.writeEnvName?.trim()
+    if (token && envName) throw new UserError('invalid_token_source', 'Paste a write token or pick a variable, not both')
+    if (token) {
+      if (!STORED_TOKEN.test(token)) throw new UserError('invalid_token', 'That does not look like a Helix token (sidpjm_ and 64 characters)')
+      this.secrets.setWriteToken(id, token)
+      return { kind: 'stored' }
+    }
+    if (envName) {
+      if (!ENV_NAME.test(envName)) throw new UserError('invalid_env_name', 'Use a variable named SIDPJM_…')
+      if (!this.env[envName]) throw new UserError('env_missing', `${envName} is not set in the environment Nakoda runs in`)
+      this.secrets.deleteWriteToken(id)
+      return { kind: 'env', name: envName }
+    }
+    if (input.clearWrite) {
+      this.secrets.deleteWriteToken(id)
+      return null
+    }
+    return current?.writeTokenSource ?? null
   }
 
   create(raw: unknown): Connector {
@@ -117,6 +160,7 @@ export class ConnectorService {
       label: input.label,
       baseUrl: normalizeBaseUrl(input.baseUrl),
       tokenSource: this.source(input, id),
+      writeTokenSource: this.writeSource(input, id),
       lastCheckedAt: null,
       mappings: input.mappings,
     }
@@ -127,7 +171,7 @@ export class ConnectorService {
   update(id: string, raw: unknown): Connector {
     const current = this.find(id)
     const input = parse(raw)
-    const next: Row = { ...current, label: input.label, baseUrl: normalizeBaseUrl(input.baseUrl), tokenSource: this.source(input, id, current), lastCheckedAt: null, mappings: input.mappings ?? current.mappings }
+    const next: Row = { ...current, label: input.label, baseUrl: normalizeBaseUrl(input.baseUrl), tokenSource: this.source(input, id, current), writeTokenSource: this.writeSource(input, id, current), lastCheckedAt: null, mappings: input.mappings ?? current.mappings }
     this.save(this.rows().map((r) => (r.id === id ? next : r)))
     this.forget(id)
     return this.view(next)
@@ -163,6 +207,83 @@ export class ConnectorService {
     this.me.set(id, { at: Date.now(), id: result.owner.id })
     this.save(this.rows().map((r) => (r.id === id ? { ...r, lastCheckedAt: nowIso() } : r)))
     return result
+  }
+
+  private writeClient(id: string): HelixClient {
+    const row = this.find(id)
+    const token = this.writeToken(row)
+    if (!token) {
+      const source = row.writeTokenSource
+      throw new UserError(
+        'write_token_missing',
+        source?.kind === 'env' ? `${source.name} is not set in the environment Nakoda runs in` : 'This connection is read-only. Edit it and add a write token to change tickets.',
+      )
+    }
+    return new HelixClient({ baseUrl: row.baseUrl, token, ...this.options })
+  }
+
+  /** Who the write token belongs to and whether it can really write (it needs read, create and write). */
+  testWrite(id: string): Promise<TestResult> {
+    return this.writeClient(id).test(new Date(), 'write')
+  }
+
+  transitions(id: string, boardId: number): Promise<AllowedTransitions> {
+    return this.client(id).allowedTransitions(boardId)
+  }
+
+  /** What an action would send and what to double-check first. Sends nothing. */
+  async previewWrite(id: string, raw: unknown): Promise<WritePreview> {
+    const action = parseWrite(raw)
+    this.writeClient(id)
+    let meId: number | null = null
+    try {
+      meId = await this.meId(id, this.client(id))
+    } catch {
+      /* the preview still works; it just cannot tell whose email goes out */
+    }
+    return buildPreview(action, meId)
+  }
+
+  /**
+   * Make the change, once the person has confirmed it. Every try is logged. Subtasks go one at a
+   * time and stop at the first failure, so nothing is guessed about what a half-finished batch means.
+   */
+  async applyWrite(id: string, raw: unknown, confirmed: unknown): Promise<WriteOutcome> {
+    if (confirmed !== true) throw new UserError('confirmation_required', 'Confirm the change first')
+    const action = parseWrite(raw)
+    const client = this.writeClient(id)
+    const outcome: WriteOutcome = { ok: true, done: [], failure: null, warnings: [] }
+    const attempt = async (kind: WriteLogEntry['action'], ticketKey: string, summary: string, title: string | undefined, run: () => Promise<{ key?: string; warnings: string[] }>): Promise<boolean> => {
+      try {
+        const result = await run()
+        outcome.done.push({ key: result.key ?? ticketKey, ...(title ? { title } : {}) })
+        outcome.warnings.push(...result.warnings)
+        logWrite(this.db, { connectorId: id, action: kind, ticketKey: result.key ?? ticketKey, summary, ok: true })
+        return true
+      } catch (e) {
+        const code = e instanceof UserError ? e.code : 'helix_error'
+        outcome.ok = false
+        outcome.failure = { code, message: e instanceof Error ? e.message : 'The change failed', ...(title ? { title } : {}) }
+        logWrite(this.db, { connectorId: id, action: kind, ticketKey, summary, ok: false, errorCode: code })
+        return false
+      }
+    }
+    if (action.action === 'status') {
+      await attempt('status', action.key, `${action.key} → ${action.status}`, undefined, () => client.moveStatus(action.key, action.status, action.comment))
+    } else if (action.action === 'comment') {
+      await attempt('comment', action.key, `Comment: ${action.content}`, undefined, () => client.addComment(action.key, action.content))
+    } else {
+      for (const item of action.items) {
+        if (!(await attempt('subtask', action.parentKey, `Subtask under ${action.parentKey}: ${item.title}`, item.title, () => client.createSubtask(action.parentKey, item)))) break
+      }
+    }
+    this.forget(id)
+    return outcome
+  }
+
+  writes(id: string, limit?: number): WriteLogEntry[] {
+    this.find(id)
+    return listWrites(this.db, id, limit)
   }
 
   boards(id: string) {
@@ -234,5 +355,11 @@ export class ConnectorService {
 function parse(raw: unknown): ConnectorInput {
   const parsed = ConnectorInput.safeParse(raw)
   if (!parsed.success) throw new UserError('invalid_connector', parsed.error.issues[0]?.message ?? 'Invalid connection')
+  return parsed.data
+}
+
+function parseWrite(raw: unknown): HelixWrite {
+  const parsed = HelixWrite.safeParse(raw)
+  if (!parsed.success) throw new UserError('invalid_write', parsed.error.issues[0]?.message ?? 'Invalid change')
   return parsed.data
 }

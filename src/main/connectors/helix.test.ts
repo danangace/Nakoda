@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { BOARDS, DEFECT, ME, MILESTONES, SEARCH, STORY } from './fixtures/helix'
-import { HelixClient, iterationShort, normalizeBaseUrl, ticketKind } from './helix'
+import { HelixClient, iterationShort, normalizeBaseUrl, subtaskBody, ticketKind, writeError } from './helix'
 
 const TOKEN = `sidpjm_${'f'.repeat(64)}`
 const json = (body: unknown, status = 200, headers: Record<string, string> = {}) =>
@@ -194,5 +194,95 @@ describe('HelixClient', () => {
   it('never puts a token in an error message', async () => {
     const { helix } = client({ '/api/boards/': () => json({ error: `bad ${TOKEN}` }, 500) })
     await expect(helix.boards()).rejects.toThrow(/^(?!.*sidpjm_f{64})/)
+  })
+})
+
+
+const sent = (calls: { url: string; init: RequestInit }[]) => calls.map((c) => ({ method: c.init.method, path: new URL(c.url).pathname, body: JSON.parse(String(c.init.body ?? 'null')) as unknown }))
+
+describe('changing tickets', () => {
+  it('moves a ticket and sends the note in the same request', async () => {
+    const { helix, calls } = client({ '/api/tickets/T2-9/status': () => json({ data: { status: 'in_review' }, warnings: ['R-17: big'] }) })
+    expect(await helix.moveStatus('T2-9', 'in_review', '  PR opened  ')).toEqual({ status: 'in_review', warnings: ['R-17: big'] })
+    expect(sent(calls)).toEqual([{ method: 'PATCH', path: '/api/tickets/T2-9/status', body: { status: 'in_review', comment: 'PR opened' } }])
+    const headers = (calls[0]?.init.headers ?? {}) as Record<string, string>
+    expect(headers.Authorization).toBe(`Bearer ${TOKEN}`)
+    expect(calls[0]?.init.redirect).toBe('manual')
+  })
+
+  it('leaves the note out when it is blank', async () => {
+    const { helix, calls } = client({ '/api/tickets/T2-9/status': () => json({ data: { status: 'done' } }) })
+    await helix.moveStatus('T2-9', 'done', '   ')
+    expect(sent(calls)[0]?.body).toEqual({ status: 'done' })
+  })
+
+  it('adds a comment, and a subtask whose planned start goes as midnight UTC', async () => {
+    const { helix, calls } = client({
+      '/api/tickets/T2-9/comments': () => json({ data: { id: 1 } }, 201),
+      '/api/tickets/T2-9/children': () => json({ data: { ticket_key: 'T2-10' }, warnings: ['x'] }, 201),
+    })
+    await helix.addComment('T2-9', 'Checked.')
+    expect(await helix.createSubtask('T2-9', { title: 'Wire API', storyPoint: 3, assigneeId: 7, targetStartDate: '2026-12-01' })).toEqual({ key: 'T2-10', warnings: ['x'] })
+    expect(sent(calls)).toEqual([
+      { method: 'POST', path: '/api/tickets/T2-9/comments', body: { content: 'Checked.' } },
+      { method: 'POST', path: '/api/tickets/T2-9/children', body: { title: 'Wire API', type: 'subtask', story_point: 3, assignee_id: 7, target_start_date: '2026-12-01T00:00:00Z' } },
+    ])
+    expect(subtaskBody({ title: 'Plain' })).toEqual({ title: 'Plain', type: 'subtask' })
+  })
+
+  it('fails loudly when Helix accepts a subtask but names no key, and refuses a bad ticket key before any call', async () => {
+    const { helix, calls } = client({ '/api/tickets/T2-9/children': () => json({ data: {} }, 201) })
+    await expect(helix.createSubtask('T2-9', { title: 'x' })).rejects.toMatchObject({ code: 'helix_error' })
+    await expect(helix.moveStatus('../x', 'done')).rejects.toMatchObject({ code: 'invalid_ticket_key' })
+    expect(calls).toHaveLength(1)
+  })
+
+  it('never retries a change, even on a 503, and never follows a redirect', async () => {
+    const busy = client({ '/api/tickets/T2-9/comments': () => json({ error: 'busy', code: 'busy' }, 503) })
+    await expect(busy.helix.addComment('T2-9', 'x')).rejects.toMatchObject({ code: 'helix_busy' })
+    expect(busy.calls).toHaveLength(1)
+    const moved = client({ '/api/tickets/T2-9/comments': () => new Response(null, { status: 301, headers: { location: 'https://elsewhere.test' } }) })
+    await expect(moved.helix.addComment('T2-9', 'x')).rejects.toMatchObject({ code: 'helix_redirect' })
+  })
+
+  it('says the change may not have landed when Helix cannot be reached', async () => {
+    const helix = new HelixClient({ baseUrl: 'https://helix.test', token: TOKEN, fetch: (async () => { throw new Error('down') }) as typeof fetch })
+    await expect(helix.addComment('T2-9', 'x')).rejects.toMatchObject({ code: 'helix_unreachable', message: expect.stringMatching(/may not have been saved/) })
+  })
+
+  it('reads where each type may move', async () => {
+    const { helix } = client({ '/api/boards/4/allowed-transitions': () => json({ data: { transitions: { story: { to_do: ['in_progress'], done: [] } } } }) })
+    expect(await helix.allowedTransitions(4)).toEqual({ story: { to_do: ['in_progress'], done: [] } })
+  })
+
+  it('judges a write token by read, create and write, not by "more than read"', async () => {
+    const full = { data: { ...ME.data, token: { scope: 'ticket_authoring', capabilities: ['read', 'create', 'write'], expires_at: '2027-09-22T00:00:00Z' } } }
+    expect((await client({ '/api/auth/me': () => json(full) }).helix.test(new Date('2026-11-26'), 'write')).warnings).toEqual([])
+    const readOnly = await client({ '/api/auth/me': () => json(ME) }).helix.test(new Date('2026-11-26'), 'write')
+    expect(readOnly.warnings).toHaveLength(2)
+    expect(readOnly.warnings.join(' ')).toMatch(/create.*write/s)
+  })
+
+  it.each([
+    [401, {}, 'helix_token', /write token/],
+    [403, { code: 'insufficient_scope', details: { required_capability: 'write' } }, 'helix_scope', /needs "write"/],
+    [403, { code: 'session_required', details: { field: 'status' } }, 'helix_human_only', /out of done/],
+    [403, { code: 'session_required' }, 'helix_human_only', /only a person/],
+    [403, { code: 'ticket_archived' }, 'helix_archived', /archived/],
+    [404, { code: 'ticket_not_found' }, 'helix_not_found', /not found/],
+    [409, { code: 'write_conflict' }, 'helix_conflict', /Nothing was saved/],
+    [400, { code: 'invalid_transition', details: { allowed: ['in_progress', 'done'] } }, 'helix_invalid_transition', /in_progress, done/],
+    [400, { code: 'missing_required_fields', details: { fields: ['scope'] } }, 'helix_missing_fields', /scope/],
+    [429, { code: 'rate_limited' }, 'helix_rate_limited', /30 a minute/],
+    [400, { code: 'transition_blocked', error: 'Add acceptance criteria first' }, 'helix_transition_blocked', /acceptance criteria/],
+    [500, {}, 'helix_error', /500/],
+  ])('maps %i %j to a message a person can act on', (status, body, code, message) => {
+    const e = writeError(status, body)
+    expect(e.code).toBe(code)
+    expect(e.message).toMatch(message)
+  })
+
+  it('never lets a token reach the message', () => {
+    expect(writeError(400, { error: `bad ${TOKEN}` }).message).not.toContain(TOKEN)
   })
 })
