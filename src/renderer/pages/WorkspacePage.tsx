@@ -10,6 +10,7 @@ import { ArchiveButton } from '../components/workspace/ArchiveButton'
 import { EditWorkspaceModal } from '../components/workspace/EditWorkspaceModal'
 import { LifecycleBadge } from '../components/workspace/LifecycleBadge'
 import { STATUS_LABEL, StatusDot } from '../components/workspace/StatusDot'
+import { BreakdownButton } from '../components/tasks/BreakdownButton'
 import { HelixChangeButton } from '../components/tasks/HelixChangeButton'
 import { Collapsible } from '../components/ui/Collapsible'
 import { Notice } from '../components/ui/Field'
@@ -134,14 +135,24 @@ function TaskDetails({ workspace }: { workspace: Workspace }) {
       <div className="space-y-1.5">
         <div className="text-sm text-foreground/80">Free chat</div>
         {task && <SourceLink task={task} />}
-        {task && <HelixChangeButton task={task} />}
+        {task && (
+          <div className="flex gap-3">
+            <HelixChangeButton task={task} />
+            <BreakdownButton task={task} />
+          </div>
+        )}
       </div>
     )
   }
   return (
     <div className="space-y-1.5" title="Claude gets these in every chat of this workspace">
       {task && <SourceLink task={task} />}
-      {task && <HelixChangeButton task={task} />}
+      {task && (
+        <div className="flex gap-3">
+          <HelixChangeButton task={task} />
+          <BreakdownButton task={task} />
+        </div>
+      )}
       <div className="mb-1 text-sm font-medium text-info">{workflow?.name ?? 'Workflow'}</div>
       {(workflow?.fields ?? []).map((f) => (
         <DetailRow key={f.key} label={f.label} value={workspace.values[f.key] ?? ''} />

@@ -85,6 +85,7 @@ const modelListers = {
 }
 // A fake Helix (sanitized answers), so the Connectors and External screens run without the network.
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status })
+let subtasksMade = 0
 const E2E_WRITE_TOKEN = `sidpjm_${'f'.repeat(64)}`
 const fakeHelix = (async (url: string | URL | Request, init?: RequestInit) => {
   const path = new URL(String(url)).pathname
@@ -96,6 +97,7 @@ const fakeHelix = (async (url: string | URL | Request, init?: RequestInit) => {
     const sent = JSON.parse(String(init?.body ?? '{}')) as { status?: string }
     if (method === 'PATCH' && path === '/api/tickets/T2-3672/status') return json({ data: { status: sent.status } })
     if (method === 'POST' && path === '/api/tickets/T2-3672/comments') return json({ data: { id: 1 } }, 201)
+    if (method === 'POST' && path === '/api/tickets/T2-3252/children') return json({ data: { ticket_key: `T2-${4000 + ++subtasksMade}` } }, 201)
     return json({ error: 'not_found' }, 404)
   }
   const body =
@@ -112,7 +114,7 @@ const fakeHelix = (async (url: string | URL | Request, init?: RequestInit) => {
               : path === '/api/tickets/T2-3672'
                 ? DEFECT
                 : path === '/api/tickets/T2-3252'
-                  ? STORY
+                  ? { data: { ...STORY.data, status: 'in_progress' } }
                   : path === '/api/tickets/T2-3274'
                     ? SUBTASK
                     : null

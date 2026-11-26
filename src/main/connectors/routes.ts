@@ -21,6 +21,7 @@ export function registerConnectorRoutes(app: Hono, service: ConnectorService): v
     return c.json({ ok: true })
   })
   app.post(`${base}/:id/test`, async (c) => c.json(await service.test(c.req.param('id'))))
+  app.get(`${base}/:id/me`, async (c) => c.json(await service.owner(c.req.param('id'))))
   app.post(`${base}/:id/test-write`, async (c) => c.json(await service.testWrite(c.req.param('id'))))
   // Changes to Helix: preview shows exactly what would be sent; the call needs `confirmed: true`.
   app.post(`${base}/:id/writes/preview`, async (c) => c.json(await service.previewWrite(c.req.param('id'), await c.req.json())))

@@ -13,6 +13,7 @@ import { Button } from '../ui/Button'
 import { Notice } from '../ui/Field'
 import { StatusDot } from '../workspace/StatusDot'
 import { AssignModal } from './AssignModal'
+import { BreakdownButton } from './BreakdownButton'
 import { HelixChangeButton } from './HelixChangeButton'
 import { TaskModal } from './TaskModal'
 
@@ -66,6 +67,7 @@ function Card({ task, workflows, onOpen }: { task: Task; workflows: Workflow[]; 
           )}
           {task.externalUrl && (
             <span className="flex shrink-0 items-center gap-3">
+              <BreakdownButton task={task} />
               <HelixChangeButton task={task} />
               <a href={task.externalUrl} target="_blank" rel="noreferrer noopener" onClick={(e) => e.stopPropagation()} className="inline-flex shrink-0 items-center gap-1 text-foreground/60 hover:text-foreground">
                 Open in source <ExternalLink className="size-3" />

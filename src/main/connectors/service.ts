@@ -227,6 +227,11 @@ export class ConnectorService {
     return this.writeClient(id).test(new Date(), 'write')
   }
 
+  /** Whose token this is: the default assignee of a subtask you create. */
+  async owner(id: string): Promise<TestResult['owner']> {
+    return (await this.client(id).test()).owner
+  }
+
   transitions(id: string, boardId: number): Promise<AllowedTransitions> {
     return this.client(id).allowedTransitions(boardId)
   }

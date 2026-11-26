@@ -154,6 +154,7 @@ export const api = {
   /** The few fields of a Helix ticket the change dialog needs. */
   connectorTicket: (id: string, key: string) =>
     request('GET', `/api/connectors/${id}/tickets/${encodeURIComponent(key)}`, z.object({ key: z.string(), title: z.string(), type: z.string(), status: z.string(), board: z.string().nullable(), url: z.string() })),
+  connectorOwner: (id: string) => request('GET', `/api/connectors/${id}/me`, z.object({ id: z.number(), name: z.string(), username: z.string() })),
   helixTransitions: (id: string, boardId: number) => request('GET', `/api/connectors/${id}/boards/${boardId}/transitions`, AllowedTransitions),
   connectorBoards: (id: string) => request('GET', `/api/connectors/${id}/boards`, z.array(z.object({ id: z.number(), name: z.string() }))),
   connectorIterations: (id: string, boardId: number) => request('GET', `/api/connectors/${id}/iterations?boardId=${boardId}`, z.array(Iteration)),

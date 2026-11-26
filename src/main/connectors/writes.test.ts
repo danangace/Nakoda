@@ -105,6 +105,14 @@ describe('a write token on a connection', () => {
   })
 })
 
+describe('who am I', () => {
+  it('names the owner of the read token, for the default assignee', async () => {
+    const { call, connect } = setup()
+    const c = await connect()
+    expect(await (await call('GET', `/api/connectors/${c.id}/me`)).json()).toEqual({ id: 7, name: 'Ada Lovelace', username: 'ada.l' })
+  })
+})
+
 describe('changing a ticket', () => {
   it('previews exactly what would be sent, and sends nothing', async () => {
     const { call, connect, writesOf } = setup()
