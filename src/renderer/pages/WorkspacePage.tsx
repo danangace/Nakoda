@@ -1,17 +1,20 @@
-import { Check, Copy, FileText, PanelRight, Pencil } from 'lucide-react'
+import { Check, ChevronRight, Copy, FileText, PanelRight, Pencil } from 'lucide-react'
 import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import { resolveDocPath } from '../../shared/doc-paths'
-import type { Settings, Workflow, Workspace } from '../../shared/schemas'
+import { LIFECYCLES, LIFECYCLE_LABEL, type Lifecycle, type Settings, type Workflow, type Workspace, isFinished } from '../../shared/schemas'
 import { useRouter } from '../store/router'
+import { useWorkspaces } from '../store/workspaces'
 import { api } from '../api/nakoda'
 import { ArchiveButton } from '../components/workspace/ArchiveButton'
 import { EditWorkspaceModal } from '../components/workspace/EditWorkspaceModal'
+import { LifecycleBadge } from '../components/workspace/LifecycleBadge'
 import { STATUS_LABEL, StatusDot } from '../components/workspace/StatusDot'
 import { Collapsible } from '../components/ui/Collapsible'
 import { Notice } from '../components/ui/Field'
+import { Select } from '../components/ui/Select'
 import { cn } from '../lib/cn'
 import { errorText } from '../lib/errors'
-import { readPref, writePref } from '../lib/local-pref'
+import { hasPref, readPref, writePref } from '../lib/local-pref'
 import { useAppEvents } from '../store/events'
 
 function CopyButton({ value, label }: { value: string; label: string }) {
@@ -170,14 +173,52 @@ function SetupLog({ workspace }: { workspace: Workspace }) {
   )
 }
 
-function DetailsSection({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
+/**
+ * One block of the right panel. With an `id` it folds, and remembers whether you left it open
+ * (per browser); `summary` is the one line that stays visible while it is folded.
+ */
+function DetailsSection({
+  title,
+  action,
+  children,
+  id,
+  defaultOpen = true,
+  summary,
+}: {
+  title: string
+  action?: ReactNode
+  children: ReactNode
+  id?: string
+  defaultOpen?: boolean
+  summary?: ReactNode
+}) {
+  // Until you fold or unfold it, the default decides (and may change, e.g. a free chat becoming a task).
+  const [chosen, setChosen] = useState<boolean | null>(() => (id && hasPref(`details-${id}`) ? readPref(`details-${id}`, defaultOpen) : null))
+  const open = id ? (chosen ?? defaultOpen) : true
+  const toggle = () => {
+    setChosen(!open)
+    if (id) writePref(`details-${id}`, !open)
+  }
   return (
-    <section className="space-y-2 border-b border-border px-4 py-3">
-      <div className="flex items-center justify-between">
-        <h3 className="text-xs font-semibold text-muted-foreground/80">{title}</h3>
+    <section data-testid={id ? `details-${id}` : undefined} className="space-y-2 border-b border-border px-4 py-3">
+      <div className="flex items-center justify-between gap-2">
+        {id ? (
+          <button
+            type="button"
+            aria-expanded={open}
+            onClick={toggle}
+            className="flex min-w-0 flex-1 items-center gap-1 text-left text-xs font-semibold text-muted-foreground/80 hover:text-foreground"
+          >
+            <ChevronRight className={cn('size-3.5 shrink-0 transition-transform', open && 'rotate-90')} />
+            <span className="shrink-0">{title}</span>
+            {!open && summary && <span className="min-w-0 flex-1 truncate pl-1 font-mono text-xs font-normal text-muted-foreground/60">{summary}</span>}
+          </button>
+        ) : (
+          <h3 className="text-xs font-semibold text-muted-foreground/80">{title}</h3>
+        )}
         {action}
       </div>
-      {children}
+      {open && children}
     </section>
   )
 }
@@ -195,10 +236,52 @@ function CopyLine({ value }: { value: string }) {
   )
 }
 
-/** Right panel (Orca's right sidebar): task values, branch + folder, setup log, archive. */
-function DetailsPanel({ workspace, onEdit }: { workspace: Workspace; onEdit: () => void }) {
+const FOLLOW_TICKET = 'follow-ticket'
+
+/** Where the work stands. Follows the assigned ticket unless you pick a state. */
+function LifecycleControl({ workspace, onChange }: { workspace: Workspace; onChange: (ws: Workspace) => void }) {
+  const reload = useWorkspaces((s) => s.load)
+  const [error, setError] = useState<string | null>(null)
+  const manual = workspace.lifecycleSource === 'manual'
+  const options = [
+    { value: FOLLOW_TICKET, label: workspace.lifecycleSource === 'task' && workspace.lifecycle ? `Follow ticket (${LIFECYCLE_LABEL[workspace.lifecycle]})` : 'Follow ticket' },
+    ...LIFECYCLES.map((l) => ({ value: l, label: LIFECYCLE_LABEL[l] })),
+  ]
+  const choose = (value: string) => {
+    setError(null)
+    const lifecycle = value === FOLLOW_TICKET ? null : (value as Lifecycle)
+    api.setWorkspaceLifecycle(workspace.id, lifecycle).then(
+      (ws) => (onChange(ws), void reload()),
+      (e: unknown) => setError(errorText(e)),
+    )
+  }
+  return (
+    <div className="space-y-1.5">
+      <Select aria-label="Workspace state" value={manual ? (workspace.lifecycle ?? FOLLOW_TICKET) : FOLLOW_TICKET} onValueChange={choose} options={options} disabled={Boolean(workspace.archivedAt)} />
+      {workspace.lifecycleSource === null && <div className="text-xs text-muted-foreground">No ticket on this workspace. Pick a state to mark it.</div>}
+      {error && <Notice tone="error">{error}</Notice>}
+    </div>
+  )
+}
+
+/**
+ * Right panel. What you act on comes first (state, task); what you look up sits folded below
+ * (docs, git, setup), with its one-line summary. Archive is last, or right under the state once
+ * the work is finished.
+ */
+function DetailsPanel({ workspace, onEdit, onChange }: { workspace: Workspace; onEdit: () => void; onChange: (ws: Workspace) => void }) {
+  const finished = isFinished(workspace.lifecycle) && !workspace.archivedAt
   return (
     <aside className="flex w-80 shrink-0 flex-col overflow-y-auto border-l border-border bg-sidebar">
+      <DetailsSection title="State">
+        <LifecycleControl workspace={workspace} onChange={onChange} />
+        {finished && (
+          <div className="space-y-1.5" data-testid="archive-hint">
+            <div className="text-xs text-muted-foreground">This work is finished. Archiving removes the worktree folder.</div>
+            <ArchiveButton workspace={workspace} />
+          </div>
+        )}
+      </DetailsSection>
       <DetailsSection
         title={workspace.workflowId ? 'Task' : 'Type'}
         action={
@@ -217,24 +300,29 @@ function DetailsPanel({ workspace, onEdit }: { workspace: Workspace; onEdit: () 
       >
         <TaskDetails workspace={workspace} />
       </DetailsSection>
-      <DetailsSection title="Docs">
+      <DetailsSection id="docs" title="Docs" defaultOpen={Boolean(workspace.workflowId)}>
         <DocLocations workspace={workspace} onEdit={onEdit} />
       </DetailsSection>
-      <DetailsSection title="Branch">
-        <CopyLine value={workspace.branch} />
-        <div className="text-xs text-muted-foreground">from {workspace.base}</div>
-      </DetailsSection>
-      <DetailsSection title="Folder">
-        <CopyLine value={workspace.worktreePath} />
+      <DetailsSection id="git" title="Git" defaultOpen={false} summary={workspace.branch}>
+        <div className="space-y-1">
+          <div className="text-xs text-muted-foreground">Branch · from {workspace.base}</div>
+          <CopyLine value={workspace.branch} />
+        </div>
+        <div className="space-y-1">
+          <div className="text-xs text-muted-foreground">Folder</div>
+          <CopyLine value={workspace.worktreePath} />
+        </div>
       </DetailsSection>
       {workspace.setupStatus !== 'skipped' && (
-        <DetailsSection title="Setup">
+        <DetailsSection id="setup" title="Setup" defaultOpen={workspace.setupStatus !== 'done'} summary={workspace.setupStatus}>
           <SetupLog workspace={workspace} />
         </DetailsSection>
       )}
-      <DetailsSection title="Workspace">
-        <ArchiveButton workspace={workspace} />
-      </DetailsSection>
+      {!finished && !workspace.archivedAt && (
+        <DetailsSection title="Workspace">
+          <ArchiveButton workspace={workspace} />
+        </DetailsSection>
+      )}
     </aside>
   )
 }
@@ -267,6 +355,7 @@ export function WorkspacePage({ id, chats }: { id: string; chats?: (ws: Workspac
         <h1 className="truncate text-sm font-semibold text-foreground">{workspace.name}</h1>
         <span className="truncate font-mono text-xs text-muted-foreground/70">{workspace.branch}</span>
         {workspace.workflowId && <WorkflowChip workflowId={workspace.workflowId} />}
+        {workspace.lifecycle && <LifecycleBadge lifecycle={workspace.lifecycle} />}
         <span className="text-xs text-muted-foreground">{STATUS_LABEL[workspace.status]}</span>
         <button
           type="button"
@@ -280,7 +369,7 @@ export function WorkspacePage({ id, chats }: { id: string; chats?: (ws: Workspac
       </header>
       <div className="flex min-h-0 flex-1">
         <div className="flex min-w-0 flex-1 flex-col">{chats?.(workspace)}</div>
-        {details && <DetailsPanel workspace={workspace} onEdit={() => setEditing(true)} />}
+        {details && <DetailsPanel workspace={workspace} onEdit={() => setEditing(true)} onChange={setWorkspace} />}
       </div>
     </div>
   )

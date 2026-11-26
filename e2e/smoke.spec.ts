@@ -81,6 +81,32 @@ test('start, accounts, docs, workspace and chat (AC-B1 smoke)', async ({ page })
   await expect(page.getByTestId('usage-five_hour')).toContainText('82% used')
   await expect(page.getByTestId('usage-seven_day')).toContainText('Resets in 3d')
   await page.screenshot({ path: shot('6-usage') })
+
+  // State: where the work stands, apart from the live chat status. Nothing says anything yet.
+  await page.keyboard.press('Escape')
+  const state = page.getByLabel('Workspace state')
+  await expect(page.getByText('No ticket on this workspace')).toBeVisible()
+  // Docs / Git / Setup are folded; Git still names the branch.
+  await expect(page.getByTestId('details-git')).toContainText('feat/tribe-2/smoke-feature')
+  await pick(page, state, 'In review')
+  await expect(page.locator('main header').getByTestId('lifecycle-badge')).toHaveText('In review')
+  await expect(row.getByTestId('lifecycle-badge')).toHaveText('In review')
+  await expect(page.getByTestId('archive-hint')).toHaveCount(0)
+  await pick(page, state, 'Done')
+  await expect(page.getByTestId('archive-hint')).toContainText('finished')
+  await page.screenshot({ path: shot('7-state-done') })
+  // Finished work can be tucked away; the one you are looking at stays.
+  await page.getByTestId('toggle-finished').click()
+  await expect(row).toBeVisible()
+  await page.goto('/')
+  await expect(page.getByTestId('toggle-finished')).toHaveText('Show 1 finished')
+  await expect(page.getByTestId('workspace-row-smoke-feature')).toHaveCount(0)
+  await page.getByTestId('toggle-finished').click()
+  await expect(page.getByTestId('workspace-row-smoke-feature')).toBeVisible()
+  // Back to following the ticket.
+  await page.getByTestId('workspace-row-smoke-feature').click()
+  await pick(page, page.getByLabel('Workspace state'), 'Follow ticket')
+  await expect(page.getByTestId('workspace-row-smoke-feature').getByTestId('lifecycle-badge')).toHaveCount(0)
 })
 
 test('Add a project by browsing to a folder, then edit its settings (AC-P1)', async ({ page }) => {

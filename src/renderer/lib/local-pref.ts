@@ -13,6 +13,15 @@ export function readPref(key: string, fallback: boolean): boolean {
   }
 }
 
+/** Whether the user ever chose a value, as opposed to the default applying. */
+export function hasPref(key: string): boolean {
+  try {
+    return stored(key) !== null
+  } catch {
+    return false
+  }
+}
+
 export function writePref(key: string, value: boolean): void {
   try {
     window.localStorage.setItem(`nakoda:${key}`, value ? '1' : '0')
