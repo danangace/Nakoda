@@ -283,14 +283,11 @@ export function BreakdownDialog({ connector, ticketKey, onClose, onDone }: { con
                   )}
                   {source === 'spec' && check && (
                     <div data-testid="spec-check">
-                      {check.questionsPath === null ? (
-                        <Notice tone="info">No Open Questions file next to this document. Be sure its questions are answered.</Notice>
-                      ) : check.open.length === 0 ? (
+                      {check.questionsPath === null ? null : check.open.length === 0 ? (
                         <Notice tone="ok">Open Questions: all {check.total} answered.</Notice>
                       ) : (
-                        <Notice tone={check.open.some((q) => q.blocksCoding) ? 'error' : 'info'}>
-                          {check.open.length} of {check.total} open questions are not answered:{' '}
-                          {check.open.map((q) => `${q.id} ${q.topic}${q.blocksCoding ? ' (blocks coding)' : ''}`).join(' · ')}. A breakdown from an unfinished spec guesses the gaps.
+                        <Notice tone="info">
+                          {check.open.length} of {check.total} open questions are still open: {check.open.map((q) => `${q.id} ${q.topic}`).join(' · ')}. A breakdown is high level, so you can go on; Claude notes any gap it meets.
                         </Notice>
                       )}
                     </div>
