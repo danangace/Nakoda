@@ -5,6 +5,7 @@ import type { DocPath, Settings } from '../../../shared/schemas'
 import { api } from '../../api/nakoda'
 import { errorText } from '../../lib/errors'
 import { Button } from '@/components/ui/button'
+import { type ThemeChoice, useTheme } from '../../store/theme'
 import { toast } from '../../store/toast'
 import { Card, Field, Notice } from '../ui/Field'
 import { Input } from '@/components/ui/input'
@@ -60,6 +61,7 @@ function DocPathsEditor({ value, onChange }: { value: DocPath[]; onChange: (v: D
 }
 
 export function GeneralSettings() {
+  const theme = useTheme()
   const [settings, setSettings] = useState<Settings | null>(null)
   const [profiles, setProfiles] = useState<{ dir: string; name: string }[]>([])
   const [message, setMessage] = useState<{ tone: 'error'; text: string } | null>(null)
@@ -93,6 +95,18 @@ export function GeneralSettings() {
       }
     >
       {message && <Notice tone={message.tone}>{message.text}</Notice>}
+      <Field label="Theme" hint="Applies at once and is remembered in this browser. System follows your OS.">
+        <Select
+          aria-label="Theme"
+          value={theme.choice}
+          onValueChange={(v) => theme.set(v as ThemeChoice)}
+          options={[
+            { value: 'dark', label: 'Dark' },
+            { value: 'light', label: 'Light' },
+            { value: 'system', label: 'System' },
+          ]}
+        />
+      </Field>
       <Field label="Docs root" hint="Markdown folder shown read-only in Docs, e.g. your Obsidian vault.">
         <Input
           value={settings.docsRoot ?? ''}

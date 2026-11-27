@@ -4,6 +4,15 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Nakoda</title>
+    <script>
+      // Apply the saved theme before first paint (no flash). Same rule as store/theme.ts.
+      try {
+        var c = localStorage.getItem('nakoda.theme') || 'dark'
+        var light = c === 'light' || (c === 'system' && window.matchMedia && !window.matchMedia('(prefers-color-scheme: dark)').matches)
+        document.documentElement.classList.toggle('dark', !light)
+        document.documentElement.style.colorScheme = light ? 'light' : 'dark'
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

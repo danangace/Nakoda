@@ -1,7 +1,7 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
-/* shadcn components switch on a `dark` class (`dark:` variants); the app is dark only, so <html class="dark"> is always set. */
+/* Dark is the default (the @theme values below). <html class="dark"> is set by store/theme.ts; without it the light palette further down applies. */
 @custom-variant dark (&:is(.dark *));
 
 /* shadcn custom variants (data-open, data-checked, data-horizontal ...), copied from shadcn/tailwind.css: `shadcn init` imports that file, and this project is set up by hand. */
@@ -100,6 +100,33 @@
   --radius-lg: 0.625rem;
 }
 
+/* Light palette: same token names, overriding the dark values above when <html> has no `dark` class. */
+:root:not(.dark) {
+  --color-background: #fafafa;
+  --color-foreground: #171717;
+  --color-sidebar: #f2f2f3;
+  --color-card: #ffffff;
+  --color-popover: #ffffff;
+  --color-secondary: #ececee;
+  --color-muted: #ececee;
+  --color-muted-foreground: #6a6a70;
+  --color-accent: #e2e2e6;
+  --color-border: rgb(0 0 0 / 0.1);
+  --color-input: rgb(0 0 0 / 0.16);
+  --color-ring: #a1a1aa;
+  --color-primary: #171717;
+  --color-primary-foreground: #fafafa;
+  --color-destructive: #d92d34;
+  --color-success: #0f8a54;
+  --color-warning: #b26a00;
+  --color-info: #1d6fbf;
+  --color-chat-user: #ececee;
+  --color-popover-foreground: #171717;
+  --color-accent-foreground: #171717;
+  --color-card-foreground: #171717;
+  --color-secondary-foreground: #171717;
+}
+
 :root {
   --background: var(--color-background);
   --foreground: var(--color-foreground);
@@ -129,13 +156,13 @@ body {
 }
 
 ::selection {
-  background: rgb(255 255 255 / 0.18);
+  background: color-mix(in srgb, var(--color-foreground) 18%, transparent);
 }
 
 /* Thin, quiet scrollbars like Orca. */
 * {
   scrollbar-width: thin;
-  scrollbar-color: rgb(255 255 255 / 0.12) transparent;
+  scrollbar-color: color-mix(in srgb, var(--color-foreground) 14%, transparent) transparent;
 }
 
 /* Read-only markdown view */

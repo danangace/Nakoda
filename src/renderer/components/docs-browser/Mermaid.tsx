@@ -1,27 +1,31 @@
 import { useEffect, useId, useState } from 'react'
+import { useTheme } from '../../store/theme'
 
 let ready: Promise<typeof import('mermaid').default> | null = null
 const loadMermaid = () => {
   ready ??= import('mermaid').then(({ default: mermaid }) => {
-    mermaid.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'strict' })
     return mermaid
   })
   return ready
 }
 
 export function Mermaid({ code }: { code: string }) {
+  const theme = useTheme((s) => s.resolved)
   const id = `m${useId().replace(/[^a-zA-Z0-9]/g, '')}`
   const [svg, setSvg] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   useEffect(() => {
     let alive = true
     loadMermaid()
-      .then((mermaid) => mermaid.render(id, code))
+      .then((mermaid) => {
+        mermaid.initialize({ startOnLoad: false, theme: theme === 'dark' ? 'dark' : 'default', securityLevel: 'strict' })
+        return mermaid.render(id, code)
+      })
       .then((r) => alive && setSvg(r.svg), (e: unknown) => alive && setError(String(e)))
     return () => {
       alive = false
     }
-  }, [code, id])
+  }, [code, id, theme])
   if (error) return <pre className="text-xs text-destructive">Mermaid error: {error}</pre>
   if (!svg) return <div className="text-xs text-muted-foreground">Rendering diagram…</div>
   // biome-ignore lint/security/noDangerouslySetInnerHtml: mermaid output with securityLevel strict
