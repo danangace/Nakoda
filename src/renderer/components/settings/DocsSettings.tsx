@@ -7,7 +7,7 @@ import { errorText } from '../../lib/errors'
 import { toast } from '../../store/toast'
 import { Button } from '@/components/ui/button'
 import { Card, Notice } from '../ui/Field'
-import { Switch } from '../ui/Switch'
+import { Switch } from '@/components/ui/switch'
 
 /** Settings → Docs: switch folders of the docs root off to keep them out of the Docs sidebar. Notes stay readable by link. */
 export function DocsSettings() {
@@ -57,6 +57,7 @@ export function DocsSettings() {
                 aria-label={`Show ${r.path}`}
                 checked={r.on}
                 disabled={r.inherited}
+                className="data-checked:bg-success *:data-[slot=switch-thumb]:bg-foreground!"
                 onCheckedChange={(on) => setSettings({ ...settings, docsHidden: setFolderShown(settings.docsHidden, r.path, on) })}
               />
               <span className={cn('min-w-0 flex-1 truncate text-sm', r.on ? 'text-foreground' : 'text-foreground/60')}>{r.name}</span>

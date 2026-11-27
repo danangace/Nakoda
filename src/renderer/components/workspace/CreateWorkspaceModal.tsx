@@ -10,7 +10,7 @@ import { errorText } from '../../lib/errors'
 import { useRouter } from '../../store/router'
 import { useWorkspaces } from '../../store/workspaces'
 import { Button } from '@/components/ui/button'
-import { Collapsible } from '../ui/Collapsible'
+import { CollapsiblePanel } from '../ui/CollapsiblePanel'
 import { Field, Notice } from '../ui/Field'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -247,11 +247,11 @@ export function CreateWorkspaceModal({ projectId, taskId, onClose }: { projectId
                 />
               </Field>
             </div>
-            <Collapsible title="Advanced" panelClassName="space-y-2 px-3 py-3">
+            <CollapsiblePanel title="Advanced" panelClassName="space-y-2 px-3 py-3">
               <Field label="Base branch">
                 <Input aria-label="Base branch override" value={base} placeholder={effectiveBase} onChange={(e) => setBase(e.target.value)} />
               </Field>
-            </Collapsible>
+            </CollapsiblePanel>
             <p className="text-xs text-muted-foreground">
               Branch <code className="text-foreground/80">{branchPreview}</code> from <code className="text-foreground/80">{effectiveBase}</code>
             </p>
