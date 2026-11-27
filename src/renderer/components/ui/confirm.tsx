@@ -1,6 +1,5 @@
 import { type ReactNode, createContext, useCallback, useContext, useRef, useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { AlertDialog, AlertDialogClose, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from './AlertDialog'
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from './alert-dialog'
 
 export type ConfirmOptions = {
   title: string
@@ -49,10 +48,10 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
             {options?.description && <AlertDialogDescription>{options.description}</AlertDialogDescription>}
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogClose render={<Button variant="secondary" />}>Cancel</AlertDialogClose>
-            <Button variant={options?.destructive ? 'destructive' : 'default'} onClick={() => settle(true)}>
+            <AlertDialogCancel variant="secondary">Cancel</AlertDialogCancel>
+            <AlertDialogAction variant={options?.destructive ? 'destructive' : 'default'} onClick={() => settle(true)}>
               {options?.confirmLabel ?? 'Confirm'}
-            </Button>
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
