@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { AlertVariant } from '../components/ui/Alert'
+export type AlertVariant = 'default' | 'success' | 'destructive'
 
 export type Toast = { id: number; title: string; description?: string; variant: AlertVariant }
 

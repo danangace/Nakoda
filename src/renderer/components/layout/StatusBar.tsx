@@ -7,7 +7,7 @@ import { formatReset, liveWindows, percent, timeAgo, usageTone, windowLabel } fr
 import { useAppEvents } from '../../store/events'
 import { toast } from '../../store/toast'
 import { useRouter } from '../../store/router'
-import { Popover } from '../ui/Popover'
+import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover'
 
 const TONE = { ok: 'bg-foreground/70', warn: 'bg-warning', high: 'bg-destructive' }
 
@@ -85,7 +85,8 @@ export function StatusBar() {
 
   return (
     <footer className="relative flex h-7 shrink-0 items-center gap-3 border-t border-border bg-sidebar px-3 text-xs text-muted-foreground">
-      <button type="button" aria-label="Usage" onClick={() => setOpen(!open)} className="flex items-center gap-2 rounded px-1.5 py-0.5 hover:bg-secondary hover:text-foreground">
+      <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger aria-label="Usage" className="flex items-center gap-2 rounded px-1.5 py-0.5 hover:bg-secondary hover:text-foreground">
         <span>Used</span>
         <Sparkles className="size-3.5 text-[#d97757]" />
         {windows.length === 0 ? (
@@ -101,8 +102,8 @@ export function StatusBar() {
             </span>
           ))
         )}
-      </button>
-      <Popover open={open} onClose={() => setOpen(false)} className="w-[22rem] p-3">
+      </PopoverTrigger>
+      <PopoverContent side="top" align="start" sideOffset={8} className="w-[22rem] gap-0 p-3">
         <div className="mb-2 flex items-center justify-between">
           <span className="text-sm font-semibold text-foreground">Usage</span>
           <button type="button" aria-label="Refresh usage" title="Refresh" onClick={() => void refresh()} className="text-muted-foreground hover:text-foreground">
@@ -126,6 +127,7 @@ export function StatusBar() {
         >
           <UserCog className="size-4" /> Manage accounts…
         </button>
+      </PopoverContent>
       </Popover>
     </footer>
   )
