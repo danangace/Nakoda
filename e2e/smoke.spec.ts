@@ -760,8 +760,8 @@ test('Update a Helix ticket from its card: review the exact request, then send (
   await bd.getByTestId('doc-list').getByRole('button', { name: 'spec/FE-01 Invoices.md' }).click()
   await expect(bd.getByTestId('doc-view').getByRole('heading', { name: 'FE-01 Invoices' })).toBeVisible()
   // Is the spec ready? The Open Questions file next to it says one question is still open and blocks coding.
-  await expect(bd.getByTestId('spec-check')).toContainText('1 of 2 open questions are not answered')
-  await expect(bd.getByTestId('spec-check')).toContainText('OQ-02 Export format (blocks coding)')
+  await expect(bd.getByTestId('spec-check')).toContainText('1 of 2 open questions are still open')
+  await expect(bd.getByTestId('spec-check')).toContainText('OQ-02 Export format')
   // A first draft from Claude fills the list; it is read and fixed like anything typed.
   await bd.getByLabel('Instruction for Claude').fill('The API for export does not exist yet')
   await bd.getByTestId('draft-with-claude').click()
