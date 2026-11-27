@@ -14,6 +14,7 @@ import { Field, Notice } from '../ui/Field'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Modal } from '../ui/Modal'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useConfirm } from '../ui/confirm'
 
 type Step = 'source' | 'rows' | 'preview' | 'sent'
@@ -231,20 +232,21 @@ export function BreakdownDialog({ connector, ticketKey, onClose, onDone }: { con
 
         {step === 'source' && parent && !blocked && (
           <>
-            <div role="tablist" className="flex gap-1 text-sm">
-              {([['breakdown', 'From a breakdown document'], ['spec', 'From a spec'], ['text', 'Write a list']] as const).map(([value, label]) => (
-                <button
-                  key={value}
-                  type="button"
-                  role="tab"
-                  aria-selected={source === value}
-                  onClick={() => (setSource(value), setFound(null), void (doc && value === 'breakdown' ? pick(doc.path, 'breakdown') : undefined))}
-                  className={source === value ? 'rounded-md bg-secondary px-3 py-1 text-foreground' : 'rounded-md px-3 py-1 text-muted-foreground hover:text-foreground'}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+            <Tabs
+              value={source}
+              onValueChange={(v) => {
+                const next = v as Source
+                setSource(next)
+                setFound(null)
+                if (doc && next === 'breakdown') void pick(doc.path, 'breakdown')
+              }}
+            >
+              <TabsList>
+                <TabsTrigger value="breakdown">From a breakdown document</TabsTrigger>
+                <TabsTrigger value="spec">From a spec</TabsTrigger>
+                <TabsTrigger value="text">Write a list</TabsTrigger>
+              </TabsList>
+            </Tabs>
             <div className={cn('grid gap-4', wide && 'grid-cols-[1fr_22rem]')}>
               {source !== 'text' && (
                 <div className="min-w-0 space-y-2">

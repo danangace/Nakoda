@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Field, Notice } from '../ui/Field'
 import { Textarea } from '@/components/ui/textarea'
 import { Modal } from '../ui/Modal'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Select } from '../ui/SelectInput'
 
 type Mode = 'status' | 'comment'
@@ -90,20 +91,12 @@ export function HelixChangeDialog({ connector, ticketKey, onClose, onDone }: { c
 
         {stage === 'compose' && (
           <>
-            <div role="tablist" className="flex gap-1 text-sm">
-              {(['status', 'comment'] as const).map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  role="tab"
-                  aria-selected={mode === m}
-                  onClick={() => setMode(m)}
-                  className={mode === m ? 'rounded-md bg-secondary px-3 py-1 text-foreground' : 'rounded-md px-3 py-1 text-muted-foreground hover:text-foreground'}
-                >
-                  {m === 'status' ? 'Move status' : 'Comment'}
-                </button>
-              ))}
-            </div>
+            <Tabs value={mode} onValueChange={(v) => setMode(v as Mode)}>
+              <TabsList>
+                <TabsTrigger value="status">Move status</TabsTrigger>
+                <TabsTrigger value="comment">Comment</TabsTrigger>
+              </TabsList>
+            </Tabs>
             {mode === 'status' && (
               <Field label="Move to" hint={info && info.next.length === 0 ? (info.known ? 'Helix has no move from this status.' : 'Could not read where this ticket may go.') : undefined}>
                 <Select aria-label="Move to" value={status} onValueChange={setStatus} options={(info?.next ?? []).map((s) => ({ value: s, label: label(s) }))} placeholder={info ? 'Choose a status…' : 'Loading…'} disabled={!info || info.next.length === 0} />
