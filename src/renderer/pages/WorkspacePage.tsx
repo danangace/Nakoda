@@ -11,7 +11,7 @@ import { EditWorkspaceModal } from '../components/workspace/EditWorkspaceModal'
 import { LifecycleBadge } from '../components/workspace/LifecycleBadge'
 import { STATUS_LABEL, StatusDot } from '../components/workspace/StatusDot'
 import { TicketMenu } from '../components/tasks/TicketMenu'
-import { Collapsible } from '../components/ui/Collapsible'
+import { CollapsiblePanel } from '../components/ui/CollapsiblePanel'
 import { Notice } from '../components/ui/Field'
 import { Select } from '../components/ui/SelectInput'
 import { cn } from '../lib/cn'
@@ -253,11 +253,11 @@ function SetupLog({ workspace }: { workspace: Workspace }) {
   }, [log])
   if (workspace.setupStatus === 'skipped') return null
   return (
-    <Collapsible defaultOpen={workspace.setupStatus !== 'done'} title={workspace.setupStatus} className="bg-background/40">
+    <CollapsiblePanel defaultOpen={workspace.setupStatus !== 'done'} title={workspace.setupStatus} className="bg-background/40">
       <pre ref={ref} className="max-h-56 overflow-y-auto p-2.5 text-xs whitespace-pre-wrap text-muted-foreground">
         {log || 'Waiting for output…'}
       </pre>
-    </Collapsible>
+    </CollapsiblePanel>
   )
 }
 

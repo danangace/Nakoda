@@ -7,7 +7,7 @@ import { errorText } from '../../lib/errors'
 import { useRouter } from '../../store/router'
 import { useWorkspaces } from '../../store/workspaces'
 import { Button } from '@/components/ui/button'
-import { Checkbox } from '../ui/Checkbox'
+import { Checkbox } from '../ui/CheckboxField'
 import { Notice } from '../ui/Field'
 
 /** Archive a workspace. The branch is deleted only when the box is ticked (AC-W5). */

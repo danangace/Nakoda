@@ -11,7 +11,7 @@ import { toast } from '../../store/toast'
 import { Button } from '@/components/ui/button'
 import { Card, Notice } from '../ui/Field'
 import { Select } from '../ui/SelectInput'
-import { Switch } from '../ui/Switch'
+import { Switch } from '@/components/ui/switch'
 
 /** One row: switch on / off, ★ default, name + description from the account. */
 function ModelRow({
@@ -29,7 +29,7 @@ function ModelRow({
 }) {
   return (
     <li className={cn('flex items-center gap-3 rounded-md border border-border/60 px-3 py-2', on ? 'bg-card' : 'bg-transparent')}>
-      <Switch aria-label={`Show ${model.displayName}`} checked={on} onCheckedChange={onToggle} />
+      <Switch aria-label={`Show ${model.displayName}`} checked={on} onCheckedChange={onToggle} className="data-checked:bg-success *:data-[slot=switch-thumb]:bg-foreground!" />
       <div className="min-w-0 flex-1">
         <div className={cn('text-sm', on ? 'text-foreground' : 'text-foreground/60')}>
           {model.displayName} <span className="font-mono text-xs text-muted-foreground">{model.value}</span>

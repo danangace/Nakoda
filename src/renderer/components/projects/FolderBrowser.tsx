@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { type DirListing, api } from '../../api/nakoda'
 import { cn } from '../../lib/cn'
 import { errorText } from '../../lib/errors'
-import { Checkbox } from '../ui/Checkbox'
+import { Checkbox } from '../ui/CheckboxField'
 import { Notice } from '../ui/Field'
 
 /**
