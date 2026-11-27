@@ -174,10 +174,10 @@ test('Settings → Workflows: create a workflow with fields (AC-F1)', async ({ p
   await page.getByRole('button', { name: 'Create workflow' }).click()
   await expect(page.getByText('Saved', { exact: true })).toBeVisible()
   // Bottom-right alert confirms the save
-  const toastAlert = page.getByRole('alert').filter({ hasText: 'Workflow created' })
+  const toastAlert = page.locator('[data-sonner-toast]').filter({ hasText: 'Workflow created' })
   await expect(toastAlert).toBeVisible()
   await page.screenshot({ path: 'test-results/screens/toast.png' })
-  await toastAlert.getByRole('button', { name: 'Dismiss' }).click()
+  await toastAlert.getByRole('button', { name: 'Close toast' }).click()
   await expect(toastAlert).toBeHidden()
   await expect(page.getByRole('button', { name: /Defect fix/ })).toBeVisible()
   await page.screenshot({ path: 'test-results/screens/workflows.png', fullPage: true })

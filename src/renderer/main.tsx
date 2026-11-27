@@ -6,7 +6,10 @@ import { App } from './App'
 import { ApiError, bootstrapSession, request } from './api/http-client'
 import { ConfirmProvider } from './components/ui/confirm'
 import { NotConnected } from './pages/NotConnected'
+import { initTheme } from './store/theme'
 import './styles.css'
+
+initTheme()
 
 const root = document.getElementById('root')
 if (!root) throw new Error('Missing #root element')
