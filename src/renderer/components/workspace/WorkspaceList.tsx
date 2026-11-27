@@ -48,6 +48,10 @@ function WorkspaceRow({ ws, active, onClick }: { ws: Workspace; active: boolean;
       {ws.lifecycle && <LifecycleBadge lifecycle={ws.lifecycle} />}
       {ws.status === 'working' ? (
         <Loader2 aria-label="Working" className="size-3.5 shrink-0 animate-spin text-info" />
+      ) : ws.status === 'needs_approval' ? (
+        <span title="needs approval" className="shrink-0">
+          <Loader2 aria-label="Needs approval" className="size-3.5 animate-spin text-warning" />
+        </span>
       ) : (
         <StatusDot status={ws.status} />
       )}
