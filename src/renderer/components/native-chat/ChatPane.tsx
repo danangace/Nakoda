@@ -195,9 +195,9 @@ export function ChatPane({ chat: initial }: { chat: Chat }) {
               </AssistantRow>
             ),
           )}
-          {running && status === 'working' && (
+          {running && (
             <div className="flex items-center gap-2 pl-9 text-xs text-muted-foreground">
-              <Loader2 className="size-3 animate-spin" /> Claude is working…
+              <Loader2 className="size-3 animate-spin" /> {status === 'needs_approval' ? 'Waiting for your approval…' : 'Claude is working…'}
             </div>
           )}
         </div>

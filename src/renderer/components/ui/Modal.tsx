@@ -17,14 +17,14 @@ export function Modal({
 }) {
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent aria-label={title} showCloseButton={false} className={`gap-0 p-0 ${width}`}>
-        <DialogHeader className="px-5 pt-4 pb-3 pr-12">
+      <DialogContent aria-label={title} showCloseButton={false} className={`flex max-h-[calc(100dvh-2rem)] flex-col gap-0 p-0 ${width}`}>
+        <DialogHeader className="shrink-0 px-5 pt-4 pb-3 pr-12">
           <DialogTitle className="text-sm font-semibold">{title}</DialogTitle>
         </DialogHeader>
         <DialogClose render={<Button variant="ghost" size="icon-sm" aria-label="Close" className="absolute top-2.5 right-2.5" />}>
           <XIcon />
         </DialogClose>
-        <div className="space-y-4 px-5 pb-5">{children}</div>
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-5 pb-5">{children}</div>
       </DialogContent>
     </Dialog>
   )
