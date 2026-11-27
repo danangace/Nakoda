@@ -6,7 +6,7 @@ import { configDirName } from '../../lib/accounts'
 import { describeModel, useAccountModels } from '../../lib/account-models'
 import { cn } from '../../lib/cn'
 import { EFFORTS, PERMISSIONS } from '../../lib/models'
-import { Popover } from '../ui/Popover'
+import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover'
 
 const PERMISSION_ICON: Record<PermissionMode, typeof Hand> = { ask: Hand, 'accept-edits': FilePen, full: ShieldAlert }
 
@@ -20,19 +20,17 @@ export function PermissionPicker({ chat, onChange }: { chat: Chat; onChange: (c:
     void api.updateChat(chat.id, { permissionMode: mode }).then(onChange)
   }
   return (
-    <div className="relative">
-      <button
-        type="button"
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger
         aria-label="Permission"
-        onClick={() => setOpen(!open)}
         className={cn(
           'flex items-center gap-1.5 rounded-md px-2 py-1 text-[13px] hover:bg-secondary',
           chat.permissionMode === 'full' ? 'text-warning' : 'text-muted-foreground hover:text-foreground',
         )}
       >
         <Icon className="size-4" /> {current.label} <ChevronDown className="size-3.5 opacity-60" />
-      </button>
-      <Popover open={open} onClose={() => setOpen(false)} className="w-80">
+      </PopoverTrigger>
+      <PopoverContent side="top" align="start" sideOffset={8} className="w-80 gap-0 p-1">
         {PERMISSIONS.map((p) => {
           const ItemIcon = PERMISSION_ICON[p.id]
           const active = p.id === chat.permissionMode
@@ -54,8 +52,8 @@ export function PermissionPicker({ chat, onChange }: { chat: Chat; onChange: (c:
             </button>
           )
         })}
-      </Popover>
-    </div>
+      </PopoverContent>
+    </Popover>
   )
 }
 
@@ -119,13 +117,8 @@ export function ModelPicker({ chat, onChange }: { chat: Chat; onChange: (c: Chat
   const effortInfo = EFFORTS.find((e) => e.id === chat.effort)
 
   return (
-    <div className="relative">
-      <button
-        type="button"
-        aria-label="Model"
-        onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 rounded-md px-2 py-1 text-[13px] hover:bg-secondary"
-      >
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger aria-label="Model" className="flex items-center gap-2 rounded-md px-2 py-1 text-[13px] hover:bg-secondary">
         <span className="font-medium text-foreground/80">{describe(chat.model).name}</span>
         {effortInfo && (
           <span className="rounded px-1.5 py-px text-xs font-semibold" style={{ color: effortInfo.color, backgroundColor: `${effortInfo.color}26` }}>
@@ -133,8 +126,8 @@ export function ModelPicker({ chat, onChange }: { chat: Chat; onChange: (c: Chat
           </span>
         )}
         <ChevronDown className="size-3.5 opacity-60" />
-      </button>
-      <Popover open={open} onClose={() => setOpen(false)} align="right" className="w-96 p-0">
+      </PopoverTrigger>
+      <PopoverContent side="top" align="end" sideOffset={8} className="w-96 gap-0 p-0">
         <div className="flex items-center gap-2 border-b border-border px-3 py-2.5">
           <Search className="size-4 text-muted-foreground" />
           <input
@@ -188,7 +181,7 @@ export function ModelPicker({ chat, onChange }: { chat: Chat; onChange: (c: Chat
             )
           })}
         </div>
-      </Popover>
-    </div>
+      </PopoverContent>
+    </Popover>
   )
 }

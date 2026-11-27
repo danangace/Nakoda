@@ -1,6 +1,7 @@
 import { CircleAlert, CircleCheck, Info, X } from 'lucide-react'
+import { cn } from '../../lib/cn'
 import { useToasts } from '../../store/toast'
-import { Alert, AlertDescription, AlertTitle } from './Alert'
+import { Alert, AlertDescription, AlertTitle } from './alert'
 
 const ICON = { success: CircleCheck, destructive: CircleAlert, default: Info }
 
@@ -13,7 +14,11 @@ export function Toaster() {
       {toasts.map((t) => {
         const Icon = ICON[t.variant]
         return (
-          <Alert key={t.id} variant={t.variant} className="pointer-events-auto pr-9 shadow-xl shadow-black/40">
+          <Alert
+            key={t.id}
+            variant={t.variant === 'destructive' ? 'destructive' : 'default'}
+            className={cn('pointer-events-auto px-4 py-3 pr-9 shadow-xl shadow-black/40', t.variant === 'success' && 'border-success/30 *:[svg]:text-success')}
+          >
             <Icon />
             <AlertTitle>{t.title}</AlertTitle>
             {t.description && <AlertDescription>{t.description}</AlertDescription>}
